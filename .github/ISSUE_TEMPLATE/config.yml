@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Support
+    url: https://gotoquill.com/support/
+    about: Setup guides and help using Gotoquill.
+  - name: Feedback without GitHub
+    url: https://gotoquill.com/feedback/
+    about: Report a problem without a GitHub account.
+  - name: Report a security vulnerability
+    url: mailto:support@gotoquill.com?subject=Security%20report
+    about: Report security problems privately.

@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: blob:; style-src 'unsafe-inline'; script-src 'self'; connect-src https: http://127.0.0.1:* http://localhost:*; form-action 'none'; base-uri 'none'">
+<meta name="referrer" content="no-referrer">
+<title>Sign a document</title>
+<style>
+:root{--fg:#111;--mut:#5b6170;--bd:#d7dae0;--bg:#f5f6f8;--ac:#1f5eff;--ok:#0a7a3d;--err:#b42318}
+*{box-sizing:border-box}html{-webkit-text-size-adjust:100%}body{margin:0;font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--fg);background:var(--bg)}
+main{max-width:860px;margin:0 auto;padding:12px}
+h1{font-size:1.2rem;margin:.2rem 0}h2{font-size:1.05rem;margin:.2rem 0 .6rem}.mut{color:var(--mut);font-size:.9rem}
+.card{background:#fff;border:1px solid var(--bd);border-radius:12px;padding:14px;margin:10px 0}
+.pg{position:relative;margin:8px 0}.pg img{width:100%;display:block;border:1px solid var(--bd);border-radius:6px;background:#fff}
+.box{position:absolute;border:2px dashed var(--ac);background:rgba(31,94,255,.08);border-radius:4px;font-size:.7rem;color:var(--ac);padding:1px 3px;font-weight:600}
+button.box{min-height:0;margin:0;font:600 .72rem/1.1 system-ui,sans-serif;text-align:left;display:flex;align-items:center;cursor:pointer;-webkit-tap-highlight-color:transparent}
+button.box:hover,button.box:focus-visible{background:rgba(31,94,255,.2);outline:2px solid var(--ac);outline-offset:1px}
+.padWrap{position:relative}
+#padPh{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;color:#b8bdc7;font-size:1.6rem;font-weight:500;letter-spacing:.02em;user-select:none}
+#multi{margin-top:12px;padding:10px 12px;border:1px solid #f0c36d;background:#fff8e6;border-radius:10px}
+#multi p{margin:0 0 4px;font-weight:600}#multi label.consent{margin-top:6px}
+.tabs{display:flex;gap:8px;margin-bottom:8px}.tabs button{flex:1}
+button{font:inherit;padding:.7rem 1rem;border-radius:10px;border:1px solid var(--bd);background:#fff;color:var(--fg);cursor:pointer;min-height:44px}
+button[aria-selected=true]{border-color:var(--ac);color:var(--ac);font-weight:600}
+button.primary{background:var(--ac);color:#fff;border-color:var(--ac);font-weight:600}
+button:disabled{opacity:.5;cursor:not-allowed}
+#pad{width:100%;height:clamp(160px,40vw,240px);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;overscroll-behavior:contain;border:2px dashed var(--bd);border-radius:10px;touch-action:none;background:#fff;display:block}
+input[type=text],textarea{width:100%;font:inherit;padding:.7rem;border:1px solid var(--bd);border-radius:10px}
+textarea{font:12px/1.3 ui-monospace,monospace;height:110px;word-break:break-all}
+#typedPreview{font:44px "Segoe Script","Brush Script MT","Snell Roundhand",cursive;min-height:76px;padding:8px;border-bottom:1px solid var(--bd);overflow:hidden;white-space:nowrap}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.row>*{flex:1 1 150px}
+label.consent{display:flex;gap:10px;align-items:flex-start;margin-top:12px}label.consent input{width:22px;height:22px;flex:none;margin-top:2px}
+#msg,#doneMsg{margin-top:10px;font-weight:600}.err{color:var(--err)}.ok{color:var(--ok)}
+button.big{width:100%;min-height:60px;font-size:1.15rem;margin-top:6px}
+details{margin-top:18px}summary{color:var(--ac);text-decoration:underline;font-size:.9rem;cursor:pointer;padding:8px 0;min-height:44px;display:flex;align-items:center}
+ol{padding-left:1.2rem}li{margin:.3rem 0}.hidden{display:none!important}code{font-size:.75rem;word-break:break-all}
+.signed{text-align:center;padding:40px 18px}.signed h1{font-size:1.6rem;color:var(--ok);margin-bottom:6px}
+/* hero-css:start (same block in web/index.html, static/sign.html, static/offline.html; tests check they match) */
+body.hero{--ac:#4f46e5;--acs:rgba(79,70,229,.13);--fg:#0f172a;--mut:#64748b;--bd:#e3e6ee;--bg:#f3f4f8;--card:#fff;--ok:#16a34a;
+  font-family:Inter,ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--fg);-webkit-font-smoothing:antialiased}
+@media (prefers-color-scheme:dark){body.hero{--ac:#8b93ff;--acs:rgba(139,147,255,.16);--fg:#e6e8ee;--mut:#97a0b3;--bd:#262c39;--bg:#0b0d12;--card:#151922;--ok:#34d399;color-scheme:dark}}
+body.hero main{max-width:760px;padding:calc(66px + env(safe-area-inset-top)) 0 calc(96px + env(safe-area-inset-bottom))}
+body.hero .card{background:var(--card);border:1px solid var(--bd);border-radius:18px;box-shadow:0 1px 2px rgba(15,23,42,.04),0 10px 30px rgba(15,23,42,.07);color:var(--fg);margin:12px}
+body.hero #app>.card:first-child{display:none}
+body.hero .heroDoc{background:none;border:0;box-shadow:none;padding:0 12px;margin:0}
+body.hero .heroDoc>.mut{display:none}
+body.hero .pg{margin:0 0 14px;border-radius:10px;overflow:visible;box-shadow:0 2px 6px rgba(15,23,42,.06),0 12px 32px rgba(15,23,42,.10)}
+body.hero .pg img,body.hero #pages img{border:0;border-radius:10px;margin:0;background:#fff}
+#heroBar{position:fixed;top:0;left:0;right:0;z-index:20;display:flex;align-items:center;gap:12px;padding:calc(12px + env(safe-area-inset-top)) 16px 12px;
+  background:color-mix(in srgb,var(--bg) 80%,transparent);-webkit-backdrop-filter:saturate(1.6) blur(16px);backdrop-filter:saturate(1.6) blur(16px);border-bottom:1px solid var(--bd)}
+#heroTitle{flex:1;min-width:0;font-weight:650;font-size:.98rem;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#heroProg{flex:none;font-size:.78rem;font-weight:650;color:var(--ac);background:var(--acs);padding:6px 11px;border-radius:999px;font-variant-numeric:tabular-nums;transition:transform .3s cubic-bezier(.34,1.56,.64,1)}
+#heroProg.bump{transform:scale(1.12)}#heroProg:empty{display:none}
+#heroCta{position:fixed;left:0;right:0;bottom:0;z-index:20;padding:14px 16px calc(14px + env(safe-area-inset-bottom));background:linear-gradient(to top,var(--bg) 55%,transparent)}
+.heroBtn,body.hero .heroBtn{display:block;width:100%;max-width:560px;margin:0 auto;min-height:56px;border:0;border-radius:16px;background:var(--ac);color:#fff;font:650 1.06rem/1 Inter,ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif;
+  letter-spacing:-.01em;box-shadow:0 10px 26px color-mix(in srgb,var(--ac) 38%,transparent);cursor:pointer;transition:transform .15s,box-shadow .2s}
+.heroBtn:active{transform:scale(.98)}
+body.hero button.box{border:0;border-radius:8px;background:rgba(79,70,229,.12);color:#4f46e5;justify-content:center;align-items:center;text-align:center;font-weight:700;font-size:11px;line-height:1;white-space:nowrap;padding:0 4px;
+  box-shadow:0 0 0 1.5px rgba(79,70,229,.55);animation:heroPulse 1.9s ease-out infinite;overflow:visible}
+body.hero div.box{border:1px dashed rgba(100,116,139,.6);background:rgba(100,116,139,.06);color:#64748b;border-radius:6px}
+@keyframes heroPulse{0%{box-shadow:0 0 0 1.5px rgba(79,70,229,.55),0 0 0 0 rgba(79,70,229,.40)}70%{box-shadow:0 0 0 1.5px rgba(79,70,229,.55),0 0 0 12px rgba(79,70,229,0)}100%{box-shadow:0 0 0 1.5px rgba(79,70,229,.55),0 0 0 0 rgba(79,70,229,0)}}
+body.hero button.box.done{animation:none;background:transparent;color:transparent;box-shadow:none}
+.box .heroSig{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none}
+.box .heroTick{position:absolute;right:-9px;top:-9px;width:20px;height:20px;border-radius:50%;background:#16a34a;color:#fff;font:700 12px/20px system-ui,sans-serif;text-align:center;
+  box-shadow:0 2px 6px rgba(22,163,74,.4);transform:scale(0);transition:transform .35s cubic-bezier(.34,1.56,.64,1)}
+.box.done .heroTick{transform:scale(1)}
+/* Sheet uses <dialog showModal> (top layer). Pin geometry so UA dialog inset/margin:auto cannot collapse it to backdrop-only on Android WebView. */
+#heroBack{position:fixed;inset:0;z-index:30;background:rgba(2,6,23,.45);display:none}
+body.sheetOpen #heroBack.heroBackOn{display:block}
+#heroSheet{position:fixed;inset:auto 0 0 0;top:auto;right:0;bottom:0;left:0;z-index:31;box-sizing:border-box;width:100%;max-width:640px;height:auto;min-height:min(88dvh,880px);min-height:min(88vh,880px);margin:0 auto;max-height:92dvh;max-height:92vh;overflow:auto;overscroll-behavior:contain;background:var(--card);color:var(--fg);
+  border:0;border-radius:22px 22px 0 0;box-shadow:0 -14px 44px rgba(2,6,23,.22);padding:0 18px calc(18px + env(safe-area-inset-bottom));
+  display:none;flex-direction:column;visibility:visible;opacity:1}
+@media (max-width:640px){#heroSheet[open]{height:min(90dvh,100%);height:min(90vh,100%);min-height:85dvh;min-height:85vh}}
+#heroSheet[open]{display:flex!important;visibility:visible!important;opacity:1!important}
+#heroSheet::backdrop{background:rgba(2,6,23,.45)}
+.heroHandle{padding:10px 0 14px;touch-action:none;cursor:grab}.heroHandle::before{content:"";display:block;width:42px;height:5px;border-radius:3px;background:var(--bd);margin:0 auto}
+body.hero #heroSheet #signCard{border:0;box-shadow:none;padding:0;margin:0;background:none}
+body.hero #heroSheet h2{font-size:1.15rem;letter-spacing:-.01em}
+body.hero #heroSheet #note{margin:0 0 10px;color:var(--mut)}
+body.hero button{border-radius:12px;background:var(--card);color:var(--fg);border-color:var(--bd)}
+body.hero button[aria-selected=true]{border-color:var(--ac);color:var(--ac);background:var(--acs)}
+body.hero button.primary{background:var(--ac);border-color:var(--ac);color:#fff}
+body.hero #submit{flex:2 1 200px;min-height:54px;border-radius:14px;font-size:1.05rem;box-shadow:0 8px 22px color-mix(in srgb,var(--ac) 32%,transparent)}
+body.hero #submit:disabled{box-shadow:none}
+body.hero input[type=text],body.hero select{background:var(--card);color:var(--fg);border-color:var(--bd);border-radius:12px}
+body.hero #pad{border:1.5px dashed #cfd5e1;border-radius:16px;background:#fff}
+body.hero #typedPreview{color:var(--fg);border-color:var(--bd)}
+body.hero label.consent input{accent-color:var(--ac)}
+body.hero #multi{border-radius:14px}
+@media (prefers-color-scheme:dark){body.hero #multi{background:rgba(245,158,11,.10);border-color:rgba(245,158,11,.35);color:var(--fg)}}
+.heroFly{position:fixed;z-index:40;pointer-events:none;object-fit:contain;transform-origin:0 0;will-change:transform,opacity;
+  transition:transform .42s cubic-bezier(.22,1,.36,1),opacity .42s;filter:drop-shadow(0 8px 14px rgba(79,70,229,.35))}
+.heroReceipt{max-width:420px;margin:44px auto!important;padding:30px 24px 20px!important;text-align:center}
+.heroReceipt h1{font-size:1.65rem!important;letter-spacing:-.02em;color:var(--ok,#16a34a)!important;margin:4px 0 2px!important}
+.heroCheck{display:block;width:76px;height:76px;margin:0 auto 8px}
+.heroCheck circle{stroke:var(--ok,#16a34a);stroke-width:3;fill:none;stroke-dasharray:166;stroke-dashoffset:166;animation:heroDraw .6s cubic-bezier(.65,0,.45,1) forwards}
+.heroCheck path{stroke:var(--ok,#16a34a);stroke-width:4;fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:40;stroke-dashoffset:40;animation:heroDraw .35s .5s cubic-bezier(.65,0,.45,1) forwards}
+@keyframes heroDraw{to{stroke-dashoffset:0}}
+.heroMeta{font-size:.84rem;color:var(--mut,#64748b);margin:2px 0 18px;font-variant-numeric:tabular-nums}
+.heroThumb{width:150px;margin:0 auto 20px;border-radius:8px;overflow:hidden;box-shadow:0 10px 28px rgba(15,23,42,.18);transform:rotate(-2deg);pointer-events:none;background:#fff;animation:heroRise .6s .15s cubic-bezier(.22,1,.36,1) both}
+.heroThumb .pg{margin:0!important;box-shadow:none!important;border-radius:0!important}.heroThumb img{border-radius:0!important}
+.heroThumb .box{font-size:0!important;border:0!important;background:none!important;animation:none!important;box-shadow:none!important}.heroThumb .heroTick{display:none}
+@keyframes heroRise{from{opacity:0;transform:translateY(12px) rotate(-2deg)}to{opacity:1;transform:rotate(-2deg)}}
+.heroFoot{display:inline-block;margin-top:22px;font-size:.76rem;color:var(--mut,#64748b);text-decoration:none;opacity:.8}.heroFoot:hover{text-decoration:underline}
+@media (prefers-reduced-motion:reduce){body.hero *,.heroReceipt *{animation:none!important;transition:none!important}.heroCheck circle,.heroCheck path{stroke-dashoffset:0}}
+/* sheet: compact + sticky action footer */
+body.hero #heroSheet[open]{padding-bottom:0}
+body.hero #heroSheet .heroHandle{padding:8px 0 8px}
+body.hero #heroSheet h2{margin:0 0 6px;font-size:1.05rem}
+body.hero #heroSheet #pad{width:100%;height:clamp(220px,45dvh,520px);height:clamp(220px,45vh,520px);min-height:220px}
+body.hero #heroSheet #orientHint{display:none;margin:6px 0 0;font-size:.78rem;color:var(--mut);text-align:center}
+@media (max-width:640px) and (orientation:portrait){body.hero #heroSheet #orientHint{display:block}}
+@media (max-width:640px) and (orientation:landscape){body.hero #heroSheet #pad{height:clamp(140px,38dvh,260px);height:clamp(140px,38vh,260px)}}
+body.hero #heroSheet .tabs,body.hero #heroSheet [role=tablist]{margin:0 0 8px}
+body.hero #heroSheet label{margin-top:6px}
+body.hero #heroSheet label.consent{font-size:.84rem;line-height:1.35;margin:8px 0}
+body.hero #heroSheet #multi{padding:8px 10px;margin:8px 0;font-size:.84rem;line-height:1.35}
+body.hero #heroSheet input[type=text]{padding:9px 12px;min-height:0}
+body.hero #heroSheet button{min-height:42px}
+.heroActions{position:sticky;bottom:0;z-index:2;margin:10px -18px 0!important;padding:10px 18px calc(12px + env(safe-area-inset-bottom))!important;
+  background:var(--card);border-top:1px solid var(--bd);box-shadow:0 -8px 18px color-mix(in srgb,var(--card) 80%,transparent)}
+/* chips: auto-fit text, overrides per-box sizing */
+body.hero button.box.heroChip{font-size:var(--chipFs,11px)!important;padding:0 3px!important;min-width:0}
+.heroChipT{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.05;pointer-events:none}
+body.hero button.box.heroChip.icon .heroChipT{display:none}
+body.hero button.box.heroChip.icon::before{content:"\270E";font-size:var(--chipFs,11px);line-height:1}
+body.hero button.box.heroChip.done::before{content:none}
+/* hero-css:end */
+.legal{font-size:.72rem;line-height:1.35;opacity:.6;margin:10px 0 0;text-align:center}
+</style>
+</head>
+<body>
+<main>
+  <div id="closed" class="card hidden" role="alert"><h1 id="closedTitle"></h1><p id="closedText" class="mut"></p></div>
+  <div id="loading" class="card" role="status"><h1>Opening the document…</h1><p class="mut" id="loadMsg">Downloading and decrypting.</p></div>
+  <div id="app" class="hidden">
+    <div class="card">
+      <h1 id="docName"></h1>
+      <div class="mut" id="sub"></div>
+      <p id="note" class="hidden"></p>
+      <div class="mut">End-to-end encrypted: the document was decrypted here in your browser. Only your assistant can read your reply.</div>
+    </div>
+    <div class="card"><div class="mut">Document preview (blue boxes show where your signature goes)</div><div id="pages" aria-label="Document pages"></div></div>
+    <div class="card" id="signCard">
+      <h2>Your signature</h2>
+      <div class="tabs" role="tablist">
+        <button id="tabDraw" role="tab" aria-selected="true" type="button">Draw</button>
+        <button id="tabType" role="tab" aria-selected="false" type="button">Type</button>
+      </div>
+      <div id="drawPanel">
+        <div class="padWrap"><canvas id="pad" tabindex="0" aria-label="Signature pad. Draw with finger, mouse or stylus."></canvas><div id="padPh" aria-hidden="true">Sign here</div></div>
+        <div class="row"><button id="clear" type="button">Clear</button></div>
+      </div>
+      <div id="typePanel" class="hidden">
+        <label for="typed">Type your full name</label>
+        <input id="typed" type="text" autocomplete="name" maxlength="80" enterkeyhint="done">
+        <div id="typedPreview" aria-hidden="true"></div>
+      </div>
+      <label for="name" style="display:block;margin-top:12px">Full name (printed in the proof record)</label>
+      <input id="name" type="text" autocomplete="name" maxlength="200">
+      <label class="consent signedBy" for="signedBy"><input type="checkbox" id="signedBy"><span id="signedByText">Add “Signed by {name} · {date}” under my signature</span></label>
+      <label class="consent" for="consent"><input type="checkbox" id="consent"><span id="consentText"></span></label>
+      <div id="multi" class="hidden" role="note"><p id="multiNote"></p>
+        <label class="consent" for="applyAll"><input type="checkbox" id="applyAll"><span id="applyAllText"></span></label></div>
+      <p id="signerPrivacyNotice" class="mut" style="font-size:13px;line-height:1.5">Gotoquill Local processes your name, signature and signing details on your device and returns them to the person who sent you this request. Shay Levi, the developer, does not receive them through Local. You do not have to provide them, but you cannot sign here without them. See <a href="https://gotoquill.com/privacy/" target="_blank" rel="noopener noreferrer">Privacy</a> for retention and your rights.<span lang="he" dir="rtl" style="display:block;margin-top:8px">Gotoquill Local מעבד את שמכם, חתימתכם ופרטי החתימה במכשיר שלכם ומחזיר אותם לאדם ששלח לכם את הבקשה. שי לוי, מפתח התוכנה, אינו מקבל אותם באמצעות Local. אינכם חייבים למסור אותם, אך בלעדיהם לא תוכלו לחתום כאן. למידע על תקופות שמירה וזכויותיכם, ראו את <a href="https://gotoquill.com/privacy/he/" target="_blank" rel="noopener noreferrer">מדיניות הפרטיות</a>.</span></p>
+      <div class="row">
+        <button id="decline" type="button">Decline</button>
+        <button id="submit" type="button" class="primary" disabled>Sign and approve</button>
+      </div>
+      <div id="msg" role="status" aria-live="polite"></div>
+      <p class="legal">gotoquill is open-source software provided as is; it is not legal advice. <a href="https://gotoquill.com/privacy/#local" target="_blank" rel="noopener noreferrer">Privacy</a></p>
+    </div>
+  </div>
+  <div id="done" class="card hidden">
+    <h1 id="doneTitle">Signed ✓ , you can close this page</h1>
+    <p class="mut" id="doneText">Your signature was sent back to your assistant, encrypted. The signed PDF is made on your assistant's side.</p>
+  </div>
+</main>
+<script src="sign.js"></script>
+</body>
+</html>

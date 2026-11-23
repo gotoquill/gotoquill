@@ -1,0 +1,15 @@
+.venv/
+node_modules/
+__pycache__/
+*.pyc
+.pytest_cache/
+.wrangler/
+dist/
+build/
+*.egg-info/
+.env
+.env.*
+*.sqlite3
+gotoquill-data/
+client-matrix-out/
+**/wrangler.local.toml

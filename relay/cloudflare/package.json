@@ -1,0 +1,17 @@
+{
+  "license": "Apache-2.0",
+  "name": "gotoquill-relay",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Zero-knowledge ciphertext mailbox for gotoquill sealed links",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "login": "wrangler login"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261102.1",
+    "typescript": "^5.6.0",
+    "wrangler": "^4.156.2"
+  }
+}

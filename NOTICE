@@ -1,0 +1,13 @@
+gotoquill
+Copyright 2026 Shay Levi
+
+This product includes software developed by Shay Levi (https://gotoquill.com).
+
+This product includes third-party software:
+  - @noble/ciphers 2.0.1 (AES-GCM), MIT License
+    Copyright (c) 2022 Paul Miller (https://paulmillr.com)
+    Copyright (c) 2016 Thomas Pornin <pornin@bolet.org>
+    Bundled in web/vendor/ and inlined at the top of web/sign.js.
+    License text: web/vendor/LICENSE.noble-ciphers
+
+See THIRD_PARTY_NOTICES.md for the full list of components and dependencies.

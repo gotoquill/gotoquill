@@ -1,0 +1,327 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "request_signature",
+      "description": "Ask the human to sign a local PDF. Default delivery='link': returns sign_url, a one-time end-to-end encrypted link (plus a QR code) that opens a signing page on any phone or computer; only ciphertext passes through the relay (ntfy.sh). Send the link to the human, then call get_signature_status(wait_seconds=60) until completed; the signed PDF and an audit JSON are written next to the original (or to output_path). delivery='page': the human is at this computer (local 127.0.0.1 page). delivery='file': no internet path at all; an offline HTML file is written to send them; they send back a reply and you call apply_signature_response. The result includes placements and preview_png_path (page image with the spots highlighted): show it to the user first. GETTING TOLD: after it returns, IMMEDIATELY start waiting in a way that wakes you; never end your turn assuming you will be told. (a) If you can run background shell jobs that notify you on exit, run `gotoquill wait <request_id>` in the background (exit 0 = signed); (b) else call get_signature_status with wait_seconds=600 repeatedly in the same turn until it is final; (c) or set on_complete_command / on_complete_webhook. After sending the link, call wait_for_signature(request_id, wait_seconds=600) IN THE SAME TURN and repeat while pending. With no hooks passed, targets saved by connect_notifications are used automatically.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "pdf_path": {
+            "type": "string",
+            "description": "Path to the PDF on this computer"
+          },
+          "output_path": {
+            "type": "string",
+            "description": "Where to write the signed PDF (default: '<name> - signed.pdf' next to the original)"
+          },
+          "signer_name": {
+            "type": "string"
+          },
+          "document_name": {
+            "type": "string"
+          },
+          "placements": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "signature",
+                    "initials",
+                    "date"
+                  ],
+                  "default": "signature"
+                },
+                "page": {
+                  "type": "integer",
+                  "description": "1-based page number"
+                },
+                "x": {
+                  "type": "number",
+                  "description": "Left edge, PDF points from left (72 pt = 1 inch)"
+                },
+                "y": {
+                  "type": "number",
+                  "description": "Top edge, PDF points from TOP of page"
+                },
+                "width": {
+                  "type": "number",
+                  "default": 180
+                },
+                "height": {
+                  "type": "number"
+                },
+                "field_name": {
+                  "type": "string",
+                  "description": "PDF form field to place into (instead of page/x/y)"
+                },
+                "add_date": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "description": "Where to place it; omit to auto-place (signature form fields, else 'Signature'/'חתימה'/... labels next to an empty box or line, LTR or RTL; fallback bottom-right of last page, flagged as a guess)"
+          },
+          "add_date": {
+            "type": "boolean",
+            "default": false,
+            "description": "Print the signing date under each signature"
+          },
+          "message": {
+            "type": "string",
+            "description": "Short note shown to the signer"
+          },
+          "expires_in_minutes": {
+            "type": "integer",
+            "description": "How long the page stays open (default 30)"
+          },
+          "open_browser": {
+            "type": "boolean",
+            "default": true
+          },
+          "delivery": {
+            "type": "string",
+            "enum": [
+              "link",
+              "link-file",
+              "page",
+              "file"
+            ],
+            "default": "link",
+            "description": "link (default, encrypted one-time link via relay), page (local browser page), file (offline HTML), link-file (like link, but one self-contained HTML file to send instead of a URL)"
+          },
+          "html_path": {
+            "type": "string",
+            "description": "delivery='file' or 'link-file': where to write the HTML (default '<name> - sign.html' next to the PDF)"
+          },
+          "spots": {
+            "description": "Which auto-detected signature spots to sign: 'all' (default), 'first', 'last', or a list of 1-based spot numbers",
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "all",
+                  "first",
+                  "last"
+                ]
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "integer"
+                }
+              }
+            ]
+          },
+          "on_complete_command": {
+            "type": "string",
+            "description": "Shell command run ONCE when the request finishes (completed/declined/expired/cancelled), by a background watcher even if you never poll. Status JSON on stdin; env GOTOQUILL_STATUS, GOTOQUILL_SIGNED_PDF, GOTOQUILL_REQUEST_ID, GOTOQUILL_PREVIEW_PNG, GOTOQUILL_NEXT."
+          },
+          "on_complete_webhook": {
+            "type": "string",
+            "description": "http(s) URL that gets the status JSON POSTed once when the request finishes."
+          },
+          "return_to": {
+            "type": "string",
+            "description": "Where the signer's 'Back to chat' button goes after signing, with 'I signed ✅' pre-filled: 'whatsapp[:<phone>]', 'telegram[:<bot>]', 'sms[:<phone>]', or an https:// / app deep link containing {text}. Allow-listed schemes only; sent inside the encrypted request. Without it the page offers the share sheet / copy and 'Go back to your chat and say \"done\"'."
+          },
+          "wait_seconds": {
+            "type": "number",
+            "description": "Default 0. If > 0 (max 600), block after creating the request until it is final or the time passes; result.final_status holds the status. Only useful if the human can already see the link."
+          },
+          "webhook_headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Extra headers for on_complete_webhook. A value 'env:VAR' is read from the environment when the hook fires, so secrets never sit in request files. Every POST also has X-Gotoquill-Timestamp and X-Gotoquill-Signature (sha256=HMAC-SHA256 of '<timestamp>.<body>' with the local secret)."
+          },
+          "webhook_body": {
+            "type": "object",
+            "description": "Optional JSON body template for on_complete_webhook: {{request_id}} {{status}} {{document_name}} {{signed_pdf_path}} {{audit_path}} {{next}} {{message}}, or the string \"{{status_json}}\" for the whole status. Default: the status JSON."
+          }
+        },
+        "required": [
+          "pdf_path"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "get_signature_status",
+      "description": "Status of a request: pending, completed (signed; includes output_path, signed_pdf_path, signed_preview_png_path, audit_path and next), declined, expired or cancelled. Set wait_seconds to block until it changes. When completed, send the signed PDF back to the signer in the chat right away without being asked. While pending, call it again with wait_seconds=600 in the same turn (or keep `gotoquill wait <request_id>` running in the background); do not end your turn assuming you will be told. While pending, call again with wait_seconds=600 in the same turn until final.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "request_id": {
+            "type": "string"
+          },
+          "wait_seconds": {
+            "type": "number",
+            "default": 0,
+            "description": "Wait up to this many seconds (max 600) for the human; use 600 while waiting"
+          }
+        },
+        "required": [
+          "request_id"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "wait_for_signature",
+      "description": "Wait up to wait_seconds (default 600, max 600) until the human signs, declines, or the request expires/is cancelled. Same result as get_signature_status. Call right after sending the link, in the same turn, and again while still pending; never end your turn assuming you will be told.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "request_id": {
+            "type": "string"
+          },
+          "wait_seconds": {
+            "type": "number",
+            "default": 600
+          }
+        },
+        "required": [
+          "request_id"
+        ]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "connect_notifications",
+      "description": "One-time setup so a finished signature wakes the agent (no copy/paste): saves notify targets used automatically by request_signature. action='connect' auto-detects OpenClaw (adds hooks + an 'gotoquill' mapping to openclaw.json; an existing file changes only with yes=true, otherwise a masked plan is returned) and/or takes webhook_url + headers ('env:VAR' values allowed) and/or Telegram (telegram_bot_token_env, chat_id); sends a test ping. action='status' lists targets (secrets masked), 'test' pings them, 'remove' deletes target_id or all.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "connect",
+              "status",
+              "test",
+              "remove"
+            ],
+            "default": "connect"
+          },
+          "webhook_url": {
+            "type": "string"
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "body_template": {
+            "type": "object"
+          },
+          "name": {
+            "type": "string"
+          },
+          "telegram_bot_token_env": {
+            "type": "string",
+            "description": "NAME of the env var holding the bot token"
+          },
+          "chat_id": {
+            "type": "string"
+          },
+          "openclaw": {
+            "type": "boolean",
+            "description": "force (true) or skip (false); default auto-detect"
+          },
+          "openclaw_config": {
+            "type": "string"
+          },
+          "openclaw_url": {
+            "type": "string"
+          },
+          "openclaw_action": {
+            "type": "string",
+            "enum": [
+              "wake",
+              "agent"
+            ],
+            "default": "wake"
+          },
+          "openclaw_agent": {
+            "type": "string"
+          },
+          "yes": {
+            "type": "boolean",
+            "default": false,
+            "description": "apply changes to an existing host config (backup made)"
+          },
+          "test": {
+            "type": "boolean",
+            "default": true
+          },
+          "target_id": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "cancel_request",
+      "description": "Cancel a pending request and close its signing page.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "request_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "apply_signature_response",
+      "description": "Finish a delivery='file' request. Pass the signer's reply: response_path (the '.gotoquill' file they sent) or response_text (the pasted code starting with GOTOQUILL1). Verifies request id, document hash, proof, expiry and one-time use, then writes the signed PDF and audit JSON.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "request_id": {
+            "type": "string"
+          },
+          "response_path": {
+            "type": "string",
+            "description": "Path to the reply file"
+          },
+          "response_text": {
+            "type": "string",
+            "description": "The pasted GOTOQUILL1 code, or the reply file's JSON text"
+          },
+          "output_path": {
+            "type": "string",
+            "description": "Where to write the signed PDF (default: <name>.signed.pdf next to the original)"
+          }
+        },
+        "required": [
+          "request_id"
+        ],
+        "additionalProperties": false
+      }
+    }
+  }
+]

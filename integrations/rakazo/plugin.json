@@ -1,0 +1,15 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.1.0/plugin.schema.json",
+  "name": "gotoquill",
+  "version": "1.0.0",
+  "description": "Request human signatures on PDFs and retrieve signed documents.",
+  "author": {
+    "name": "Shay Levi"
+  },
+  "homepage": "https://gotoquill.com",
+  "keywords": [
+    "pdf",
+    "signatures",
+    "human-consent"
+  ]
+}

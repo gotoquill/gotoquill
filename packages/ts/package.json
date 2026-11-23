@@ -1,0 +1,46 @@
+{
+  "name": "gotoquill",
+  "version": "0.1.0-draft",
+  "description": "Gotoquill: AI agents request a human signature on a PDF (TypeScript / MCP).",
+  "type": "module",
+  "license": "Apache-2.0",
+  "bin": {
+    "gotoquill": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./mcp": {
+      "types": "./dist/mcp-stdio.d.ts",
+      "import": "./dist/mcp-stdio.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "node --import tsx --test test/**/*.test.ts",
+    "mcp": "node dist/mcp-stdio.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "pdf-lib": "^1.17.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  },
+  "private": true
+}

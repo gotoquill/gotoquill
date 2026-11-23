@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.wrangler/
+.dev.vars
+data/
+*-signed.pdf
+*-signed.audit.json
+Mem - *

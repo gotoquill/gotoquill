@@ -1,0 +1,30 @@
+name: Bug report
+description: Report a reproducible problem
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Please omit personal documents, signatures, signing links, and secrets. Report vulnerabilities privately through Security Advisories.
+  - type: dropdown
+    id: assistant
+    attributes:
+      label: Assistant or host
+      options: [ChatGPT, Claude, Gemini, Le Chat, Muse, Other / local MCP]
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce using a synthetic PDF
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Gotoquill version, operating system, and browser

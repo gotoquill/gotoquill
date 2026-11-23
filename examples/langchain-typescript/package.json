@@ -1,0 +1,22 @@
+{
+  "license": "Apache-2.0",
+  "name": "gotoquill-langchain-example",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx main.ts",
+    "test": "tsx --test test.ts",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@langchain/mcp-adapters": "2.0.3",
+    "@langchain/core": "^1.0.0",
+    "@langchain/langgraph": "^1.7.5",
+    "langchain-gotoquill": "file:../../packages/langchain-gotoquill/js"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
+  }
+}

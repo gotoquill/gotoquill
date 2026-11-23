@@ -1,0 +1,30 @@
+{
+  "license": "Apache-2.0",
+  "name": "langchain-gotoquill",
+  "version": "0.1.0-draft",
+  "private": true,
+  "type": "module",
+  "description": "LangChain helpers for Gotoquill MCP (draft; do not publish)",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "peerDependencies": {
+    "@langchain/mcp-adapters": "^2.0.3",
+    "@langchain/core": "^1.0.0",
+    "@langchain/langgraph": "^1.7.5"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "@langchain/mcp-adapters": "^2.0.3",
+    "@langchain/core": "^1.0.0",
+    "@langchain/langgraph": "^1.7.5"
+  }
+}

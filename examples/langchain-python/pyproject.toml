@@ -1,0 +1,11 @@
+[project]
+name = "gotoquill-langchain-example"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = ["langchain-gotoquill", "langchain[mcp]==1.5.2", "langgraph==1.2.23"]
+
+[tool.uv.sources]
+langchain-gotoquill = { path = "../../packages/langchain-gotoquill/python", editable = true }
+
+[dependency-groups]
+dev = ["pytest>=8"]

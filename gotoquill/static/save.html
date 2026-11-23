@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Save signed PDF | Gotoquill</title>
+<style nonce="__NONCE__">
+body { font: 18px/1.5 system-ui, sans-serif; max-width: 36rem; margin: 3rem auto; padding: 0 1.25rem; color: #172b27; background: #f6faf8; }
+a, button { display: inline-block; padding: .8rem 1.2rem; margin: .5rem .5rem .5rem 0; border: 1px solid #145c48; border-radius: .5rem; font: inherit; color: #fff; background: #145c48; cursor: pointer; }
+[hidden] { display: none; }
+#filename { overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<h1>Save your signed PDF</h1>
+<p id="filename">__FILENAME__</p>
+<button id="share" type="button" hidden>Share or Save to Files</button>
+<a id="download" href="__PDF_URL__" download="__FILENAME__" rel="noreferrer">Download signed PDF</a>
+<p id="status" role="status" aria-live="polite"></p>
+<p id="tip" hidden>Tip: tap Share, then Save to Files.</p>
+<script nonce="__NONCE__">
+(() => {
+  const mobile = /iPhone|iPad|iPod|Android|Mobile|wv|WebView/i.test(navigator.userAgent)
+    || (/Macintosh|MacIntel/i.test(navigator.userAgent + ' ' + navigator.platform) && navigator.maxTouchPoints > 1);
+  if (!mobile) return;
+  const download = document.getElementById('download');
+  const share = document.getElementById('share');
+  const status = document.getElementById('status');
+  document.getElementById('tip').hidden = false;
+  // Prepare before the tap so navigator.share retains transient user activation.
+  if (!navigator.share || !navigator.canShare || !window.File) return;
+  status.textContent = 'Preparing your PDF for sharing...';
+  fetch(download.href, {cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer'})
+    .then(async response => {
+      if (!response.ok) throw new Error('unavailable');
+      const bytes = await response.arrayBuffer();
+      const head = new Uint8Array(bytes, 0, Math.min(4, bytes.byteLength));
+      if (head.length !== 4 || head[0] !== 37 || head[1] !== 80 || head[2] !== 68 || head[3] !== 70) throw new Error('invalid PDF');
+      const file = new File([bytes], download.download, {type: 'application/pdf'});
+      if (!navigator.canShare({files: [file]})) { status.textContent = ''; return; }
+      share.hidden = false;
+      status.textContent = 'Tap Share or Save to Files, then choose Save to Files.';
+      share.onclick = async () => {
+        share.disabled = true;
+        try {
+          await navigator.share({files: [file]});
+          status.textContent = 'Share sheet closed. Check Files for your saved PDF.';
+        } catch (error) {
+          if (error && error.name === 'AbortError') {
+            status.textContent = 'Sharing cancelled. Tap again to save your PDF.';
+          } else {
+            status.textContent = 'Sharing is unavailable. Opening the PDF. Tap Share, then Save to Files.';
+            download.click();
+          }
+        } finally { share.disabled = false; }
+      };
+    })
+    .catch(() => { status.textContent = 'Could not prepare the PDF. Try Download signed PDF. If the link expired, return to the chat.'; });
+})();
+</script>
+</body>
+</html>

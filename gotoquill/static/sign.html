@@ -1,0 +1,609 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Sign document · gotoquill</title>
+<style>
+.alt{text-align:center;margin:8px 0}
+:root{--fg:#111;--mut:#5b6170;--bd:#d7dae0;--bg:#f5f6f8;--ac:#1f5eff;--ok:#0a7a3d;--err:#b42318}
+*{box-sizing:border-box}body{margin:0;font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--fg);background:var(--bg)}
+main{max-width:860px;margin:0 auto;padding:16px}
+h1{font-size:1.25rem;margin:.2rem 0}.mut{color:var(--mut);font-size:.9rem}
+.card{background:#fff;border:1px solid var(--bd);border-radius:12px;padding:16px;margin:12px 0}
+#pages img{width:100%;display:block;border:1px solid var(--bd);border-radius:6px;margin:8px 0;background:#fff}
+.tabs{display:flex;gap:8px;margin-bottom:8px}.tabs button{flex:1}
+button{font:inherit;padding:.7rem 1rem;border-radius:10px;border:1px solid var(--bd);background:#fff;cursor:pointer;min-height:44px}
+button[aria-selected=true]{border-color:var(--ac);color:var(--ac);font-weight:600}
+button.primary{background:var(--ac);color:#fff;border-color:var(--ac);font-weight:600}
+button:disabled{opacity:.5;cursor:not-allowed}
+button:focus-visible,input:focus-visible,canvas:focus-visible{outline:3px solid #8fb0ff;outline-offset:2px}
+#pad{width:100%;height:clamp(160px,32vw,240px);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;overscroll-behavior:contain;border:2px dashed var(--bd);border-radius:10px;touch-action:none;background:#fff;display:block}
+input[type=text]{width:100%;font:inherit;padding:.7rem;border:1px solid var(--bd);border-radius:10px}
+#typedPreview{font:48px "Segoe Script","Brush Script MT","Snell Roundhand",cursive;min-height:80px;padding:8px;border-bottom:1px solid var(--bd);overflow:hidden;white-space:nowrap}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.row>*{flex:1 1 160px}
+label.consent{display:flex;gap:10px;align-items:flex-start;margin-top:12px}label.consent input{width:22px;height:22px;flex:none;margin-top:2px}
+#msg{margin-top:10px;font-weight:600}.err{color:var(--err)}.ok{color:var(--ok)}
+footer{text-align:center;font-size:.8rem;color:var(--mut);padding:20px}footer a{color:var(--mut)}
+.saved{display:flex;gap:12px;align-items:center;flex-wrap:wrap;border:1px solid var(--bd);border-radius:10px;padding:10px;margin:8px 0}
+.saved.sel{border-color:var(--ac);box-shadow:0 0 0 2px #c9d8ff}.saved img{height:64px;max-width:240px;background:#fff;object-fit:contain}
+.saved .meta{flex:1 1 140px}.saved button{min-height:40px}button.link{border:none;background:none;color:var(--err);padding:.4rem}
+label.save{display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap}label.save input{width:20px;height:20px}
+select{font:inherit;padding:.4rem;border-radius:8px;border:1px solid var(--bd)}
+.hidden{display:none!important}code{font-size:.75rem;word-break:break-all}
+.pg{position:relative;margin:8px 0}.pg img{width:100%;display:block;margin:0}
+.box{position:absolute;border:2px dashed #1f5eff;background:rgba(31,94,255,.08);border-radius:4px;font-size:.7rem;color:#1f5eff;padding:1px 3px;font-weight:600;box-sizing:border-box}
+button.box{min-height:0;margin:0;font:600 .72rem/1.1 system-ui,sans-serif;text-align:left;display:flex;align-items:center;cursor:pointer;-webkit-tap-highlight-color:transparent}
+button.box:hover,button.box:focus-visible{background:rgba(31,94,255,.2);outline:2px solid #1f5eff;outline-offset:1px}
+.padWrap{position:relative}
+#padPh{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;color:#b8bdc7;font-size:1.6rem;font-weight:500;letter-spacing:.02em;user-select:none}
+#multi{margin-top:12px;padding:10px 12px;border:1px solid #f0c36d;background:#fff8e6;border-radius:10px}
+#multi p{margin:0 0 4px;font-weight:600}#multi label.consent{margin-top:6px}
+.signed{text-align:center;padding:40px 18px}.signed h1{font-size:1.6rem;color:#0a7a3d;margin-bottom:6px}
+/* hero-css:start (same block in web/index.html, static/sign.html, static/offline.html; tests check they match) */
+body.hero{--ac:#4f46e5;--acs:rgba(79,70,229,.13);--fg:#0f172a;--mut:#64748b;--bd:#e3e6ee;--bg:#f3f4f8;--card:#fff;--ok:#16a34a;
+  font-family:Inter,ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--fg);-webkit-font-smoothing:antialiased}
+@media (prefers-color-scheme:dark){body.hero{--ac:#8b93ff;--acs:rgba(139,147,255,.16);--fg:#e6e8ee;--mut:#97a0b3;--bd:#262c39;--bg:#0b0d12;--card:#151922;--ok:#34d399;color-scheme:dark}}
+body.hero main{max-width:760px;padding:calc(66px + env(safe-area-inset-top)) 0 calc(96px + env(safe-area-inset-bottom))}
+body.hero .card{background:var(--card);border:1px solid var(--bd);border-radius:18px;box-shadow:0 1px 2px rgba(15,23,42,.04),0 10px 30px rgba(15,23,42,.07);color:var(--fg);margin:12px}
+body.hero #app>.card:first-child{display:none}
+body.hero .heroDoc{background:none;border:0;box-shadow:none;padding:0 12px;margin:0}
+body.hero .heroDoc>.mut{display:none}
+body.hero .pg{margin:0 0 14px;border-radius:10px;overflow:visible;box-shadow:0 2px 6px rgba(15,23,42,.06),0 12px 32px rgba(15,23,42,.10)}
+body.hero .pg img,body.hero #pages img{border:0;border-radius:10px;margin:0;background:#fff}
+#heroBar{position:fixed;top:0;left:0;right:0;z-index:20;display:flex;align-items:center;gap:12px;padding:calc(12px + env(safe-area-inset-top)) 16px 12px;
+  background:color-mix(in srgb,var(--bg) 80%,transparent);-webkit-backdrop-filter:saturate(1.6) blur(16px);backdrop-filter:saturate(1.6) blur(16px);border-bottom:1px solid var(--bd)}
+#heroTitle{flex:1;min-width:0;font-weight:650;font-size:.98rem;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#heroProg{flex:none;font-size:.78rem;font-weight:650;color:var(--ac);background:var(--acs);padding:6px 11px;border-radius:999px;font-variant-numeric:tabular-nums;transition:transform .3s cubic-bezier(.34,1.56,.64,1)}
+#heroProg.bump{transform:scale(1.12)}#heroProg:empty{display:none}
+#heroCta{position:fixed;left:0;right:0;bottom:0;z-index:20;padding:14px 16px calc(14px + env(safe-area-inset-bottom));background:linear-gradient(to top,var(--bg) 55%,transparent)}
+.heroBtn,body.hero .heroBtn{display:block;width:100%;max-width:560px;margin:0 auto;min-height:56px;border:0;border-radius:16px;background:var(--ac);color:#fff;font:650 1.06rem/1 Inter,ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif;
+  letter-spacing:-.01em;box-shadow:0 10px 26px color-mix(in srgb,var(--ac) 38%,transparent);cursor:pointer;transition:transform .15s,box-shadow .2s}
+.heroBtn:active{transform:scale(.98)}
+body.hero button.box{border:0;border-radius:8px;background:rgba(79,70,229,.12);color:#4f46e5;justify-content:center;align-items:center;text-align:center;font-weight:700;font-size:11px;line-height:1;white-space:nowrap;padding:0 4px;
+  box-shadow:0 0 0 1.5px rgba(79,70,229,.55);animation:heroPulse 1.9s ease-out infinite;overflow:visible}
+body.hero div.box{border:1px dashed rgba(100,116,139,.6);background:rgba(100,116,139,.06);color:#64748b;border-radius:6px}
+@keyframes heroPulse{0%{box-shadow:0 0 0 1.5px rgba(79,70,229,.55),0 0 0 0 rgba(79,70,229,.40)}70%{box-shadow:0 0 0 1.5px rgba(79,70,229,.55),0 0 0 12px rgba(79,70,229,0)}100%{box-shadow:0 0 0 1.5px rgba(79,70,229,.55),0 0 0 0 rgba(79,70,229,0)}}
+body.hero button.box.done{animation:none;background:transparent;color:transparent;box-shadow:none}
+.box .heroSig{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none}
+.box .heroTick{position:absolute;right:-9px;top:-9px;width:20px;height:20px;border-radius:50%;background:#16a34a;color:#fff;font:700 12px/20px system-ui,sans-serif;text-align:center;
+  box-shadow:0 2px 6px rgba(22,163,74,.4);transform:scale(0);transition:transform .35s cubic-bezier(.34,1.56,.64,1)}
+.box.done .heroTick{transform:scale(1)}
+/* Sheet uses <dialog showModal> (top layer). Pin geometry so UA dialog inset/margin:auto cannot collapse it to backdrop-only on Android WebView. */
+#heroBack{position:fixed;inset:0;z-index:30;background:rgba(2,6,23,.45);display:none}
+body.sheetOpen #heroBack.heroBackOn{display:block}
+#heroSheet{position:fixed;inset:auto 0 0 0;top:auto;right:0;bottom:0;left:0;z-index:31;box-sizing:border-box;width:100%;max-width:640px;height:auto;min-height:min(88dvh,880px);min-height:min(88vh,880px);margin:0 auto;max-height:92dvh;max-height:92vh;overflow:auto;overscroll-behavior:contain;background:var(--card);color:var(--fg);
+  border:0;border-radius:22px 22px 0 0;box-shadow:0 -14px 44px rgba(2,6,23,.22);padding:0 18px calc(18px + env(safe-area-inset-bottom));
+  display:none;flex-direction:column;visibility:visible;opacity:1}
+@media (max-width:640px){#heroSheet[open]{height:min(90dvh,100%);height:min(90vh,100%);min-height:85dvh;min-height:85vh}}
+#heroSheet[open]{display:flex!important;visibility:visible!important;opacity:1!important}
+#heroSheet::backdrop{background:rgba(2,6,23,.45)}
+.heroHandle{padding:10px 0 14px;touch-action:none;cursor:grab}.heroHandle::before{content:"";display:block;width:42px;height:5px;border-radius:3px;background:var(--bd);margin:0 auto}
+body.hero #heroSheet #signCard{border:0;box-shadow:none;padding:0;margin:0;background:none}
+body.hero #heroSheet h2{font-size:1.15rem;letter-spacing:-.01em}
+body.hero #heroSheet #note{margin:0 0 10px;color:var(--mut)}
+body.hero button{border-radius:12px;background:var(--card);color:var(--fg);border-color:var(--bd)}
+body.hero button[aria-selected=true]{border-color:var(--ac);color:var(--ac);background:var(--acs)}
+body.hero button.primary{background:var(--ac);border-color:var(--ac);color:#fff}
+body.hero #submit{flex:2 1 200px;min-height:54px;border-radius:14px;font-size:1.05rem;box-shadow:0 8px 22px color-mix(in srgb,var(--ac) 32%,transparent)}
+body.hero #submit:disabled{box-shadow:none}
+body.hero input[type=text],body.hero select{background:var(--card);color:var(--fg);border-color:var(--bd);border-radius:12px}
+body.hero #pad{border:1.5px dashed #cfd5e1;border-radius:16px;background:#fff}
+body.hero #typedPreview{color:var(--fg);border-color:var(--bd)}
+body.hero label.consent input{accent-color:var(--ac)}
+body.hero #multi{border-radius:14px}
+@media (prefers-color-scheme:dark){body.hero #multi{background:rgba(245,158,11,.10);border-color:rgba(245,158,11,.35);color:var(--fg)}}
+.heroFly{position:fixed;z-index:40;pointer-events:none;object-fit:contain;transform-origin:0 0;will-change:transform,opacity;
+  transition:transform .42s cubic-bezier(.22,1,.36,1),opacity .42s;filter:drop-shadow(0 8px 14px rgba(79,70,229,.35))}
+.heroReceipt{max-width:420px;margin:44px auto!important;padding:30px 24px 20px!important;text-align:center}
+.heroReceipt h1{font-size:1.65rem!important;letter-spacing:-.02em;color:var(--ok,#16a34a)!important;margin:4px 0 2px!important}
+.heroCheck{display:block;width:76px;height:76px;margin:0 auto 8px}
+.heroCheck circle{stroke:var(--ok,#16a34a);stroke-width:3;fill:none;stroke-dasharray:166;stroke-dashoffset:166;animation:heroDraw .6s cubic-bezier(.65,0,.45,1) forwards}
+.heroCheck path{stroke:var(--ok,#16a34a);stroke-width:4;fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:40;stroke-dashoffset:40;animation:heroDraw .35s .5s cubic-bezier(.65,0,.45,1) forwards}
+@keyframes heroDraw{to{stroke-dashoffset:0}}
+.heroMeta{font-size:.84rem;color:var(--mut,#64748b);margin:2px 0 18px;font-variant-numeric:tabular-nums}
+.heroThumb{width:150px;margin:0 auto 20px;border-radius:8px;overflow:hidden;box-shadow:0 10px 28px rgba(15,23,42,.18);transform:rotate(-2deg);pointer-events:none;background:#fff;animation:heroRise .6s .15s cubic-bezier(.22,1,.36,1) both}
+.heroThumb .pg{margin:0!important;box-shadow:none!important;border-radius:0!important}.heroThumb img{border-radius:0!important}
+.heroThumb .box{font-size:0!important;border:0!important;background:none!important;animation:none!important;box-shadow:none!important}.heroThumb .heroTick{display:none}
+@keyframes heroRise{from{opacity:0;transform:translateY(12px) rotate(-2deg)}to{opacity:1;transform:rotate(-2deg)}}
+.heroFoot{display:inline-block;margin-top:22px;font-size:.76rem;color:var(--mut,#64748b);text-decoration:none;opacity:.8}.heroFoot:hover{text-decoration:underline}
+@media (prefers-reduced-motion:reduce){body.hero *,.heroReceipt *{animation:none!important;transition:none!important}.heroCheck circle,.heroCheck path{stroke-dashoffset:0}}
+/* sheet: compact + sticky action footer */
+body.hero #heroSheet[open]{padding-bottom:0}
+body.hero #heroSheet .heroHandle{padding:8px 0 8px}
+body.hero #heroSheet h2{margin:0 0 6px;font-size:1.05rem}
+body.hero #heroSheet #pad{width:100%;height:clamp(220px,45dvh,520px);height:clamp(220px,45vh,520px);min-height:220px}
+body.hero #heroSheet #orientHint{display:none;margin:6px 0 0;font-size:.78rem;color:var(--mut);text-align:center}
+@media (max-width:640px) and (orientation:portrait){body.hero #heroSheet #orientHint{display:block}}
+@media (max-width:640px) and (orientation:landscape){body.hero #heroSheet #pad{height:clamp(140px,38dvh,260px);height:clamp(140px,38vh,260px)}}
+body.hero #heroSheet .tabs,body.hero #heroSheet [role=tablist]{margin:0 0 8px}
+body.hero #heroSheet label{margin-top:6px}
+body.hero #heroSheet label.consent{font-size:.84rem;line-height:1.35;margin:8px 0}
+body.hero #heroSheet #multi{padding:8px 10px;margin:8px 0;font-size:.84rem;line-height:1.35}
+body.hero #heroSheet input[type=text]{padding:9px 12px;min-height:0}
+body.hero #heroSheet button{min-height:42px}
+.heroActions{position:sticky;bottom:0;z-index:2;margin:10px -18px 0!important;padding:10px 18px calc(12px + env(safe-area-inset-bottom))!important;
+  background:var(--card);border-top:1px solid var(--bd);box-shadow:0 -8px 18px color-mix(in srgb,var(--card) 80%,transparent)}
+/* chips: auto-fit text, overrides per-box sizing */
+body.hero button.box.heroChip{font-size:var(--chipFs,11px)!important;padding:0 3px!important;min-width:0}
+.heroChipT{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.05;pointer-events:none}
+body.hero button.box.heroChip.icon .heroChipT{display:none}
+body.hero button.box.heroChip.icon::before{content:"\270E";font-size:var(--chipFs,11px);line-height:1}
+body.hero button.box.heroChip.done::before{content:none}
+/* hero-css:end */
+.legal{font-size:.72rem;line-height:1.35;opacity:.6;margin:10px 0 0;text-align:center}
+</style>
+</head>
+<body>
+<main>
+  <div id="loading" class="card">Loading…</div>
+  <div id="closed" class="card hidden" role="alert"><h1 id="closedTitle"></h1><p id="closedText" class="mut"></p></div>
+  <div id="app" class="hidden">
+    <div class="card">
+      <h1 id="docName"></h1>
+      <div class="mut" id="sub"></div>
+      <p id="note" class="hidden"></p>
+    </div>
+    <div class="card"><div class="mut">Document preview</div><div id="pages" aria-label="Document pages"></div></div>
+    <div class="card" id="signCard">
+      <h2 style="font-size:1.1rem;margin:.2rem 0 .6rem">Your signature</h2>
+      <div id="savedBox" class="hidden">
+        <div class="mut">Saved on this computer</div>
+        <div id="savedList"></div>
+        <div class="mut" id="savedOr">or draw / type a new one:</div>
+      </div>
+      <div class="tabs" role="tablist" aria-label="Signature method">
+        <button role="tab" id="tabDraw" aria-selected="true" aria-controls="drawPanel">Draw</button>
+        <button role="tab" id="tabType" aria-selected="false" tabindex="-1" aria-controls="typePanel">Type</button>
+      </div>
+      <div id="drawPanel" role="tabpanel" aria-labelledby="tabDraw">
+        <div class="padWrap"><canvas id="pad" tabindex="0" aria-label="Signature pad. Draw with mouse, finger or stylus. Keyboard users: press Enter to type your name instead."></canvas><div id="padPh" aria-hidden="true">Sign here</div></div>
+        <div class="row"><button id="clear" type="button">Clear</button></div>
+      </div>
+      <div id="typePanel" role="tabpanel" aria-labelledby="tabType" class="hidden">
+        <label for="typed">Type your full name</label>
+        <input id="typed" type="text" autocomplete="name" maxlength="80" enterkeyhint="done">
+        <div id="typedPreview" aria-hidden="true"></div>
+      </div>
+      <label class="save" for="saveIt" id="saveRow"><input type="checkbox" id="saveIt">
+        <span>Save this signature on this computer for next time</span>
+        <select id="saveAs" aria-label="Save as"><option value="signature">as my full signature</option><option value="initials">as my initials</option></select></label>
+      <label for="name" style="display:block;margin-top:12px">Full name (printed in the proof record)</label>
+      <input id="name" type="text" autocomplete="name" maxlength="200">
+      <label class="consent signedBy" for="signedBy"><input type="checkbox" id="signedBy"><span id="signedByText">Add “Signed by {name} · {date}” under my signature</span></label>
+      <label class="consent" for="consent"><input type="checkbox" id="consent"><span id="consentText"></span></label>
+      <div id="multi" class="hidden" role="note"><p id="multiNote"></p>
+        <label class="consent" for="applyAll"><input type="checkbox" id="applyAll"><span id="applyAllText"></span></label></div>
+      <p id="signerPrivacyNotice" class="mut" style="font-size:13px;line-height:1.5">Gotoquill Local processes your name, signature and signing details on your device and returns them to the person who sent you this request. Shay Levi, the developer, does not receive them through Local. You do not have to provide them, but you cannot sign here without them. See <a href="https://gotoquill.com/privacy/" target="_blank" rel="noopener noreferrer">Privacy</a> for retention and your rights.<span lang="he" dir="rtl" style="display:block;margin-top:8px">Gotoquill Local מעבד את שמכם, חתימתכם ופרטי החתימה במכשיר שלכם ומחזיר אותם לאדם ששלח לכם את הבקשה. שי לוי, מפתח התוכנה, אינו מקבל אותם באמצעות Local. אינכם חייבים למסור אותם, אך בלעדיהם לא תוכלו לחתום כאן. למידע על תקופות שמירה וזכויותיכם, ראו את <a href="https://gotoquill.com/privacy/he/" target="_blank" rel="noopener noreferrer">מדיניות הפרטיות</a>.</span></p>
+      <div class="row">
+        <button id="decline" type="button">Decline</button>
+        <button id="submit" type="button" class="primary" disabled>Sign and approve</button>
+      </div>
+      <div id="msg" role="status" aria-live="polite"></div>
+      <p class="legal">gotoquill is open-source software provided as is; it is not legal advice. <a href="https://gotoquill.com/privacy/#local" target="_blank" rel="noopener noreferrer">Privacy</a></p>
+    </div>
+  </div>
+</main>
+<p class="alt"><a href="#" id="openBrowser" class="hidden">Open in browser instead</a></p>
+<footer id="footer" class="hidden">Signed with <a href="https://github.com/gotoquill/gotoquill" target="_blank" rel="noopener">gotoquill</a> · open source</footer>
+<script>
+(function(){
+const base = location.pathname.replace(/\/+$/,'');
+const $ = id => document.getElementById(id);
+let mode = 'draw', drawn = false, info = null, savedSel = null, nonce = null;
+
+/* back-to-chat:start (same block in web/sign.js, static/sign.html, static/offline.html; tests check they match) */
+// Pages cannot close the chat app's viewer, so the signed screen only says so. A subtle "Return to chat"
+// text link appears only when the request set a return_to deep link. See docs/back-to-chat.md.
+const BTC_SCHEMES = ['https','whatsapp','tg','sms','slack','discord','sgnl','fb-messenger','msteams','viber','line','mailto','imessage'];
+const BTC_DONE = 'You can close this window and go back to the chat. Your signed document will be waiting for you there.';
+function btcUrl(rt, text){ if (typeof rt !== 'string' || !rt || rt.length > 600 || /[\u0000-\u001f<>"'`\\ ]/.test(rt)) return null;
+  const m = /^([a-z][a-z0-9+.-]*):/i.exec(rt); if (!m || BTC_SCHEMES.indexOf(m[1].toLowerCase()) < 0) return null;
+  return rt.split('{text}').join(encodeURIComponent(text)); }
+function backToChat(box, rt, docName, opts){ opts = opts || {};
+  const text = opts.text || ('I signed ' + (docName || 'the document') + ' \u2705 Please send me the signed file.');
+  const url = btcUrl(rt, text);
+  const wrap = document.createElement('div'); wrap.id = 'backToChat'; wrap.style.cssText = 'margin-top:10px;text-align:center';
+  const hint = document.createElement('p'); hint.id = 'doneLine'; hint.style.cssText = 'margin:0;font-size:1.05rem;color:#3b414d';
+  hint.textContent = BTC_DONE; wrap.appendChild(hint);
+  if (url) { const a = document.createElement('a'); a.id = 'returnLink'; a.textContent = 'Return to chat';
+    a.href = url; a.rel = 'noopener noreferrer'; a.target = opts.target || '_top';
+    a.style.cssText = 'display:inline-block;margin-top:14px;font-size:.9rem;color:#5b6170;text-decoration:underline;text-underline-offset:3px';
+    if (opts.openLink) a.onclick = ev => { ev.preventDefault(); Promise.resolve(opts.openLink(url)).catch(() => { location.href = url; }); };
+    wrap.appendChild(a); }
+  const foot = document.createElement('a'); foot.className = 'heroFoot'; foot.textContent = 'Signed with gotoquill \u2197';
+  foot.setAttribute('href', 'https://github.com/gotoquill/gotoquill'); foot.target = '_blank'; foot.rel = 'noopener noreferrer'; wrap.appendChild(foot);
+  const old = document.getElementById('backToChat'); if (old) old.remove();
+  if (typeof heroReceipt === 'function') heroReceipt(box);
+  box.appendChild(wrap); return {url, text}; }
+/* back-to-chat:end */
+/* hero:start (same block in web/sign.js, static/sign.html, static/offline.html; tests check they match) */
+// Document-first layout: full-width pages, top bar with progress, sticky "Review & sign", signing in a bottom sheet
+// (<dialog showModal> top-layer). Also runs inside sandboxed iframes (Muse / in-app WebViews).
+const HERO = {on: false, t0: Date.now(), t1: 0, spots: 0, done: 0, go: false, arm: false,
+  reduce: !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)};
+function heroEl(tag, cls, txt){ const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
+const heroId = id => document.getElementById(id);
+function heroInit(){ const app = heroId('app'), card = heroId('signCard'), pages = heroId('pages');
+  if (!app || !card || !pages) return;
+  HERO.on = true; document.body.classList.add('hero');
+  const docCard = pages.closest('.card'); if (docCard) docCard.classList.add('heroDoc');
+  const bar = heroEl('header'); bar.id = 'heroBar'; const t = heroEl('div'); t.id = 'heroTitle'; const pr = heroEl('div'); pr.id = 'heroProg';
+  pr.setAttribute('aria-live', 'polite'); bar.append(t, pr);
+  const cta = heroEl('div'); cta.id = 'heroCta'; const b = heroEl('button', 'heroBtn', 'Review & sign'); b.type = 'button'; b.id = 'heroOpen';
+  b.onclick = () => heroOpen(); cta.appendChild(b);
+  const back = heroEl('div'); back.id = 'heroBack'; back.setAttribute('aria-hidden', 'true');
+  back.addEventListener('click', () => { if (HERO.arm) heroClose(); });
+  const sh = heroEl('dialog'); sh.id = 'heroSheet'; sh.setAttribute('aria-label', 'Sign the document');
+  const h = heroEl('div', 'heroHandle'); h.setAttribute('aria-hidden', 'true'); sh.appendChild(h);
+  const note = heroId('note'); if (note) sh.appendChild(note);
+  sh.appendChild(card); app.append(bar, cta, back, sh);
+  const sub = heroId('submit'); if (sub) { sub.textContent = 'Adopt & sign'; sub.parentNode.classList.add('heroActions'); }
+  if (window.ResizeObserver) new ResizeObserver(() => heroFitChips()).observe(pages); else window.addEventListener('resize', heroFitChips);
+  const clr = heroId('clear'); if (clr) { const u = heroEl('button', '', 'Undo'); u.type = 'button'; u.id = 'undo';
+    u.onclick = () => { strokes.pop(); if (!strokes.length) drawn = false; redraw(); upd(); }; clr.parentNode.insertBefore(u, clr); }
+  let y0 = null; h.addEventListener('pointerdown', e => { y0 = e.clientY; try { h.setPointerCapture(e.pointerId); } catch (_) {} });
+  h.addEventListener('pointermove', e => { if (y0 === null) return; sh.style.transition = 'none'; sh.style.transform = 'translateY(' + Math.max(0, e.clientY - y0) + 'px)'; });
+  const up = e => { if (y0 === null) return; const dy = e.clientY - y0; y0 = null; sh.style.transition = ''; sh.style.transform = ''; if (dy > 80) heroClose(); };
+  h.addEventListener('pointerup', up); h.addEventListener('pointercancel', up);
+  // Only dismiss when the gesture started on the dialog/backdrop itself (not a Sign-here tap that opens then retargets).
+  let bdPtr = false;
+  sh.addEventListener('pointerdown', e => { bdPtr = (e.target === sh); }, true);
+  sh.addEventListener('click', e => { if (e.target === sh && HERO.arm && bdPtr) heroClose(); bdPtr = false; });
+  sh.addEventListener('cancel', e => { e.preventDefault(); if (HERO.arm) heroClose(); });
+  sh.addEventListener('close', () => { heroSheetClearPin(sh); heroBackOn(false); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.body.classList.contains('sheetOpen')) heroClose(); });
+  document.addEventListener('click', heroIntercept, true);
+  const msg = heroId('msg'); if (msg && window.MutationObserver) new MutationObserver(() => {
+    if (heroId('done') && !heroId('done').classList.contains('hidden')) return; // signing finished
+    if (/\berr\b/.test(msg.className) && msg.textContent) {
+      b.textContent = 'Review & sign'; if (!document.body.classList.contains('sheetOpen')) heroOpen();
+      else { try { if (sh && typeof sh.showModal === 'function' && !sh.open) sh.showModal(); } catch (_) {} } } }).observe(msg, {attributes: true, childList: true, characterData: true, subtree: true});
+  heroSpots(0); }
+// sbdate:start -- mirrors pdf.default_date_format / to_strftime / strftime so the label shows exactly what gets stamped
+const SB_TOK = [['YYYY','%Y'],['MMMM','%B'],['MMM','%b'],['MM','%m'],['DD','%d'],['YY','%y'],['HH','%H'],['mm','%M']];
+const SB_ISO = ['sv','ja','zh','ko','lt','hu','fr-ca','en-ca'];
+const SB_MON = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+var SB_BOXES = null;  // set by pages whose data is not in D
+const SB_DAY = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+function sbLocale(){ try { return (navigator.languages&&navigator.languages[0])||navigator.language||''; } catch (_) { return ''; } }
+function sbDefFmt(locale){ const l = String(locale || '').toLowerCase().replace(/_/g, '-');
+  if (!l) return '%d %b %Y';
+  if (l === 'en-us' || l === 'en-ph' || l === 'en' || l.startsWith('en-us')) return '%m/%d/%Y';
+  if (SB_ISO.some(x => l === x || l.startsWith(x + '-'))) return '%Y-%m-%d';
+  if (['de','ru','pl','fi','cs','tr','uk','nb','da'].some(x => l.startsWith(x))) return '%d.%m.%Y';
+  return '%d/%m/%Y'; }
+function sbStrf(fmt, locale){ if (!fmt || fmt === 'auto' || fmt === 'locale') return sbDefFmt(locale);
+  fmt = String(fmt); if (fmt.indexOf('%') >= 0) return fmt;
+  let out = '', i = 0;
+  while (i < fmt.length) { const t = SB_TOK.find(([k]) => fmt.startsWith(k, i));
+    if (t) { out += t[1]; i += t[0].length; } else { out += fmt[i]; i += 1; } }
+  return out; }
+function sbDate(d, strf){ const p = (n, w) => String(n).padStart(w || 2, '0');
+  return strf.replace(/%(.)/g, (m, c) => ({Y: p(d.getFullYear(), 4), y: p(d.getFullYear() % 100), m: p(d.getMonth() + 1), d: p(d.getDate()),
+    H: p(d.getHours()), M: p(d.getMinutes()), S: p(d.getSeconds()), b: SB_MON[d.getMonth()].slice(0, 3), B: SB_MON[d.getMonth()],
+    a: SB_DAY[d.getDay()].slice(0, 3), A: SB_DAY[d.getDay()], '%': '%'})[c] ?? m); }
+function sbFmt(){ let f = null; try { const b = (typeof D !== 'undefined' && D && D.boxes) || SB_BOXES || [];
+    const s = b.find(x => x.kind !== 'date' && x.date_format); if (s) f = s.date_format; } catch (_) {}
+  return sbStrf(f, sbLocale()); }
+// sbdate:end
+{ const n = document.getElementById('name'); if (n) n.addEventListener('input', sbText); sbText(); }
+function sbText(){ const s = document.getElementById('signedByText'); if (!s) return; const n = document.getElementById('name');
+  const dt = sbDate(new Date(), sbFmt());
+  const nm = (n && n.value.trim()) || 'your name';
+  s.textContent = 'Add \u201cSigned by ' + nm + ' \u00b7 ' + dt + '\u201d under my signature'; }
+function sbChecked(){ const c = document.getElementById('signedBy'); return !!(c && c.checked); }
+function heroProg(){ const p = heroId('heroProg'); if (!p) return;
+  p.textContent = HERO.spots ? HERO.done + ' of ' + HERO.spots + (HERO.spots === 1 ? ' spot' : ' spots') : '';
+  if (!HERO.reduce && HERO.done) { p.classList.add('bump'); setTimeout(() => p.classList.remove('bump'), 220); } }
+function heroFitChips(){ document.querySelectorAll('#pages button.box').forEach(b => {
+    if (!b.classList.contains('heroChip')) { const t = heroEl('span', 'heroChipT', b.textContent.trim() || 'Sign here');
+      b.setAttribute('aria-label', t.textContent); b.textContent = ''; b.appendChild(t); b.classList.add('heroChip'); }
+    if (b.classList.contains('done')) return;
+    const w = b.clientWidth, h = b.clientHeight; if (!w || !h) return;
+    const fs = Math.max(8, Math.min(13, Math.floor(h * 0.62), Math.floor(w / 5.2)));
+    b.style.setProperty('--chipFs', fs + 'px');
+    const t = b.querySelector('.heroChipT'), full = b.getAttribute('aria-label'); b.classList.remove('icon');
+    const room = w - 10, wid = () => { t.style.maxWidth = 'none'; const x = t.getBoundingClientRect().width; t.style.maxWidth = ''; return x; };
+    let fits = false; for (const lbl of [full, '\u270e Sign', 'Sign']) { t.textContent = lbl; if (wid() <= room) { fits = true; break; } }
+    b.classList.toggle('icon', h < 11 || !fits); }); }
+function heroSpots(n){ HERO.spots = n; const t = heroId('heroTitle'), d = heroId('docName'); if (t && d) t.textContent = d.textContent; heroProg(); if (HERO.on) { heroFitChips(); requestAnimationFrame(heroFitChips); setTimeout(heroFitChips, 400); } }
+function heroBackOn(on){ const b = heroId('heroBack'); if (!b) return; b.classList.toggle('heroBackOn', !!on); }
+function heroSheetClearPin(sh){ if (!sh) return;
+  ['inset','top','right','bottom','left','margin','width','max-width','height','min-height','max-height','display','visibility','opacity','transform','position'].forEach(k => sh.style.removeProperty(k)); }
+function heroSheetPin(sh, hard){ if (!sh) return;
+  const set = (k, v) => sh.style.setProperty(k, v, 'important');
+  set('inset', 'auto 0 0 0'); set('top', 'auto'); set('right', '0'); set('bottom', '0'); set('left', '0');
+  set('margin', '0 auto'); set('width', '100%'); set('max-width', '640px');
+  const vh = window.innerHeight || 800;
+  const mobile = Math.min(window.innerWidth || 800, vh) <= 640;
+  if (mobile) { set('height', Math.round(vh * 0.9) + 'px'); set('min-height', Math.round(vh * 0.85) + 'px'); set('max-height', '92vh'); }
+  else { set('height', 'auto'); set('min-height', '240px'); set('max-height', '90vh'); }
+  set('position', 'fixed');
+  if (hard) { set('display', 'flex'); set('visibility', 'visible'); set('opacity', '1'); set('transform', 'none'); } }
+function heroSheetBroken(sh){ if (!sh || (!sh.open && !sh.hasAttribute('open'))) return true;
+  const r = sh.getBoundingClientRect(), vh = window.innerHeight || 0;
+  const cs = getComputedStyle(sh);
+  return r.height < 80 || r.width < 40 || (vh && r.top > vh - 40) || cs.visibility === 'hidden' || parseFloat(cs.opacity || '1') < 0.05 || cs.display === 'none'; }
+function heroSheetShow(){ const sh = heroId('heroSheet'); if (!sh) return;
+  let modal = false;
+  if (typeof sh.showModal === 'function') {
+    try { if (!sh.open) sh.showModal(); modal = !!sh.open; } catch (_) { modal = false; } }
+  if (!modal) { sh.setAttribute('open', ''); heroBackOn(true); }
+  heroSheetPin(sh, false);
+  const rescue = () => {
+    if (!document.body.classList.contains('sheetOpen')) return;
+    if (!heroSheetBroken(sh)) { try { if (typeof sizePad === 'function') sizePad(); } catch (_) {} return; }
+    // Modal top-layer painted backdrop only (Android WebView): fall back to non-modal + #heroBack.
+    try { if (typeof sh.close === 'function' && sh.open) sh.close(); } catch (_) {}
+    sh.setAttribute('open', ''); heroBackOn(true); heroSheetPin(sh, true);
+    try { if (typeof sizePad === 'function') sizePad(); } catch (_) {}
+  };
+  requestAnimationFrame(() => { rescue(); requestAnimationFrame(rescue); setTimeout(rescue, HERO.reduce ? 0 : 80); }); }
+function heroSheetHide(){ const sh = heroId('heroSheet'); if (!sh) return;
+  sh.style.transform = ''; sh.style.transition = '';
+  heroSheetClearPin(sh); heroBackOn(false);
+  if (typeof sh.close === 'function') { try { if (sh.open) sh.close(); } catch (_) {} }
+  sh.removeAttribute('open'); }
+function heroOpen(){ if (!HERO.on) return false; heroReset(); document.body.classList.add('sheetOpen');
+  HERO.arm = false;
+  // Defer past the current tap/click so the same gesture cannot hit ::backdrop and dismiss (Chromium touch).
+  clearTimeout(HERO._showT); clearTimeout(HERO._armT); clearTimeout(HERO._padT); clearTimeout(HERO._focusT);
+  HERO._showT = setTimeout(() => {
+    heroSheetShow();
+    HERO._armT = setTimeout(() => { HERO.arm = true; }, HERO.reduce ? 0 : 480);
+    HERO._padT = setTimeout(() => { try { if (typeof sizePad === 'function') sizePad(); } catch (_) {} }, HERO.reduce ? 0 : 60);
+    const dp = heroId('drawPanel'), target = dp && !dp.classList.contains('hidden') ? heroId('pad') : heroId('typed');
+    HERO._focusT = setTimeout(() => { try { target && target.focus({preventScroll: true}); } catch (_) {} }, HERO.reduce ? 0 : 450);
+  }, 0);
+  return true; }
+function heroClose(){ document.body.classList.remove('sheetOpen'); HERO.arm = false;
+  clearTimeout(HERO._showT); clearTimeout(HERO._armT); clearTimeout(HERO._padT); clearTimeout(HERO._focusT);
+  heroSheetHide(); }
+function heroReset(){ document.querySelectorAll('#pages .box.done').forEach(b => { b.classList.remove('done'); b.querySelectorAll('.heroSig,.heroTick').forEach(x => x.remove()); });
+  HERO.done = 0; HERO.go = false; heroProg(); }
+function heroSigSrc(){ const sel = document.querySelector('.saved.sel img'); if (sel && sel.src) return sel.src;
+  const dp = heroId('drawPanel'), pad = heroId('pad');
+  if (dp && pad && !dp.classList.contains('hidden')) { try { const x = pad.getContext('2d'), W = pad.width, H = pad.height, a = x.getImageData(0, 0, W, H).data;
+      let x0 = W, y0 = H, x1 = -1, y1 = -1; for (let y = 0; y < H; y += 3) for (let i = 0; i < W; i += 3) if (a[(y * W + i) * 4 + 3] > 8) { if (i < x0) x0 = i; if (i > x1) x1 = i; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+      if (x1 < 0) return pad.toDataURL(); const m = 10, c = document.createElement('canvas'); x0 = Math.max(0, x0 - m); y0 = Math.max(0, y0 - m);
+      c.width = Math.min(W, x1 + m) - x0; c.height = Math.min(H, y1 + m) - y0; c.getContext('2d').drawImage(pad, x0, y0, c.width, c.height, 0, 0, c.width, c.height); return c.toDataURL(); }
+    catch (_) { return pad.toDataURL(); } }
+  const ty = heroId('typed'), v = ty ? ty.value.trim() : ''; if (!v) return '';
+  const c = document.createElement('canvas'); c.width = 900; c.height = 260; const x = c.getContext('2d'); let fs = 150; x.fillStyle = '#0b1a4a';
+  do { x.font = fs + 'px "Segoe Script","Brush Script MT","Snell Roundhand",cursive'; fs -= 6; } while (x.measureText(v).width > 860 && fs > 30);
+  x.textBaseline = 'middle'; x.textAlign = 'center'; x.fillText(v, 450, 130); return c.toDataURL(); }
+function heroPlace(box, src){ box.classList.add('done');
+  if (src) { const im = heroEl('img', 'heroSig'); im.src = src; im.alt = ''; box.appendChild(im); }
+  const tk = heroEl('span', 'heroTick', '\u2713'); tk.setAttribute('aria-hidden', 'true'); box.appendChild(tk); HERO.done++; heroProg(); }
+const heroWait = ms => new Promise(r => setTimeout(r, HERO.reduce ? 0 : ms));
+async function heroFly(){ const src = heroSigSrc(), spots = Array.from(document.querySelectorAll('#pages button.box'));
+  const dp = heroId('drawPanel'), fromEl = dp && !dp.classList.contains('hidden') ? heroId('pad') : heroId('signCard'), from = fromEl.getBoundingClientRect();
+  heroClose(); await heroWait(320);
+  for (const box of spots) { let to = box.getBoundingClientRect();
+    if (to.top < 70 || to.bottom > window.innerHeight - 100) { box.scrollIntoView({block: 'center', behavior: HERO.reduce ? 'auto' : 'smooth'}); await heroWait(380); to = box.getBoundingClientRect(); }
+    if (!HERO.reduce && src && from.width) { const f = heroEl('img', 'heroFly'); f.src = src; f.alt = '';
+      f.style.left = from.left + 'px'; f.style.top = from.top + 'px'; f.style.width = from.width + 'px'; f.style.height = from.height + 'px';
+      document.body.appendChild(f); f.getBoundingClientRect();
+      const s = Math.min(to.width / from.width, to.height / from.height), tx = to.left + (to.width - from.width * s) / 2 - from.left, ty = to.top + (to.height - from.height * s) / 2 - from.top;
+      f.style.transform = 'translate(' + tx + 'px,' + ty + 'px) scale(' + s + ')';
+      await heroWait(430); f.remove(); }
+    heroPlace(box, src); await heroWait(190); }
+  await heroWait(300); }
+function heroIntercept(e){ const t = e.target && e.target.closest ? e.target.closest('#submit') : null;
+  if (!t || !HERO.on || HERO.go || t.disabled) return;
+  e.preventDefault(); e.stopImmediatePropagation(); t.disabled = true;
+  if (typeof heroCaptureSignature === 'function' && !heroCaptureSignature()) { t.disabled = false; return; }
+  heroFly().catch(() => {}).then(() => { const cb = heroId('heroOpen'); if (cb) cb.textContent = 'Sending\u2026'; HERO.go = true; HERO.t1 = Date.now(); t.disabled = false; t.click(); }); }
+function heroReceipt(box){ if (!box || box.querySelector('.heroCheck')) return; if (!HERO.t1) HERO.t1 = Date.now();
+  box.classList.add('signed', 'heroReceipt'); const ns = 'http://www.w3.org/2000/svg', svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', '0 0 56 56'); svg.setAttribute('class', 'heroCheck'); svg.setAttribute('aria-hidden', 'true');
+  const c = document.createElementNS(ns, 'circle'); c.setAttribute('cx', '28'); c.setAttribute('cy', '28'); c.setAttribute('r', '26');
+  const p = document.createElementNS(ns, 'path'); p.setAttribute('d', 'M17 29l7 7 15-16'); svg.append(c, p); box.insertBefore(svg, box.firstChild);
+  const secs = Math.max(1, Math.round((HERO.t1 - HERO.t0) / 1000)), n = Math.max(1, HERO.spots || 1);
+  const meta = heroEl('p', 'heroMeta', 'Signed in ' + secs + 's \u00b7 ' + n + (n === 1 ? ' spot' : ' spots') + ' \u00b7 Stayed on your device');
+  const h = box.querySelector('h1'); box.insertBefore(meta, h ? h.nextSibling : svg.nextSibling);
+  const pg = document.querySelector('#pages .pg'); if (pg) { const th = heroEl('div', 'heroThumb'), cl = pg.cloneNode(true);
+    cl.querySelectorAll('[id]').forEach(x => x.removeAttribute('id')); th.setAttribute('aria-hidden', 'true'); th.appendChild(cl); box.insertBefore(th, meta.nextSibling); } }
+heroInit();
+/* hero:end */
+
+function closed(t, x){ $('loading').classList.add('hidden'); $('app').classList.add('hidden');
+  $('closed').classList.remove('hidden'); $('closedTitle').textContent=t; $('closedText').textContent=x||''; }
+
+function render(ok, j, pageSrc) {
+  if (!ok) return closed('Link not valid', j.error || 'This signing link does not exist.');
+  info = j; if (j.show_footer) $('footer').classList.remove('hidden');
+  const msgs = {signed:'Already signed', completed:'Already signed', declined:'Declined', expired:'Link expired', cancelled:'Request cancelled'};
+  if (j.status !== 'pending') return closed(msgs[j.status] || j.status, 'This one-time link can no longer be used.');
+  $('loading').classList.add('hidden'); $('app').classList.remove('hidden');
+  $('docName').textContent = j.document_name;
+  $('sub').textContent = (j.signer_name ? 'For ' + j.signer_name + ' · ' : '') + j.page_count + ' page(s) · link expires ' + new Date(j.expires_at).toLocaleString();
+  if (j.message) { $('note').textContent = j.message; $('note').classList.remove('hidden'); }
+  if (j.signer_name) { $('name').value = j.signer_name; $('typed').value = j.signer_name; }
+  $('consentText').textContent = j.consent_text;
+  for (let p = 1; p <= j.page_count; p++) { const im = new Image(); im.loading = p > 2 ? 'lazy' : 'eager';
+    im.alt = 'Page ' + p + ' of ' + j.page_count; im.src = pageSrc(p);
+    const pg = document.createElement('div'); pg.className = 'pg'; pg.appendChild(im);
+    (j.boxes || []).filter(b => b.page === p).forEach(b => { const x = document.createElement(b.kind === 'date' ? 'div' : 'button'); x.className = 'box';
+      if (b.kind !== 'date') { x.type = 'button'; x.setAttribute('aria-label', 'Sign here: go to the signature pad'); x.onclick = goToPad; }
+      x.style.left = (b.left * 100) + '%'; x.style.top = (b.top * 100) + '%'; x.style.width = (b.width * 100) + '%'; x.style.height = (b.height * 100) + '%';
+      x.textContent = b.kind === 'date' ? 'Date' : b.kind === 'initials' ? 'Initials' : 'Sign here'; pg.appendChild(x); });
+    $('pages').appendChild(pg); }
+  nonce = j.vault_nonce || null; showSaved(j.saved_signatures || []);
+  $('saveRow').classList.toggle('hidden', !nonce);
+  if (!nonce) $('saveIt').checked = false;
+  setSpots(j.boxes); sizePad(); updTyped(); upd();
+}
+// ---- saved signatures (shown only to the human; reuse needs a click + consent) ----
+function showSaved(list){ const box = $('savedList'); box.textContent = '';
+  $('savedBox').classList.toggle('hidden', !list.length || !nonce);
+  if (savedSel && !list.some(x => x.name === savedSel)) savedSel = null;
+  for (const s of list) { const row = document.createElement('div'); row.className = 'saved' + (savedSel === s.name ? ' sel' : ''); row.dataset.name = s.name;
+    const im = new Image(); im.alt = 'Saved ' + s.name; im.src = s.image || '';
+    const m = document.createElement('div'); m.className = 'meta';
+    m.innerHTML = '<b></b><div class="mut"></div>'; m.firstChild.textContent = s.name === 'initials' ? 'Initials' : 'Full signature';
+    m.lastChild.textContent = 'saved ' + (s.saved_at ? new Date(s.saved_at).toLocaleDateString() : '') + (s.method ? ' · ' + s.method : '');
+    const use = document.createElement('button'); use.type = 'button'; use.className = 'useSaved';
+    use.textContent = savedSel === s.name ? 'Selected ✓' : 'Use saved signature';
+    use.setAttribute('aria-pressed', savedSel === s.name);
+    use.onclick = () => { savedSel = savedSel === s.name ? null : s.name; showSaved(list); upd(); };
+    const del = document.createElement('button'); del.type = 'button'; del.className = 'link delSaved'; del.textContent = 'Delete';
+    del.onclick = () => { let ok = true; try { ok = confirm('Delete this saved signature from this computer?'); } catch (_) {} if (!ok) return;
+      delSaved(s.name).then(([ok2, j]) => { if (!ok2) { $('msg').className='err'; $('msg').textContent = j.error || 'Could not delete'; return; }
+        $('msg').className='ok'; $('msg').textContent = 'Saved signature deleted.';
+        showSaved(list.filter(x => (j.deleted || []).indexOf(x.name) < 0)); upd(); }); };
+    row.append(im, m, use, del); box.appendChild(row); }
+  const usingSaved = !!savedSel; $('drawPanel').parentNode.querySelector('.tabs').classList.toggle('hidden', usingSaved);
+  $('drawPanel').classList.toggle('hidden', usingSaved || mode!=='draw'); $('typePanel').classList.toggle('hidden', usingSaved || mode!=='type');
+  $('saveRow').classList.toggle('hidden', usingSaved); $('savedOr').classList.toggle('hidden', usingSaved);
+  if (!usingSaved && mode==='draw') sizePad(); }
+
+
+// ---- signature pad (pointer events: mouse, trackpad, touch, pen) ----
+const pad = $('pad'), ctx = pad.getContext('2d'); let pts = [], strokes = [], activeId = null, lastW = 0;
+// strokes are stored normalised to the CSS box (0..1) so they survive resizes / rotation
+function sizePad(){ const r = pad.getBoundingClientRect(); if (!r.width || !r.height) return; const d = Math.min(window.devicePixelRatio || 1, 3);
+  const w = Math.round(r.width * d), h = Math.round(r.height * d); if (w === pad.width && h === pad.height && d === lastW) return;
+  lastW = d; pad.width = w; pad.height = h; ctx.setTransform(d,0,0,d,0,0); redraw(); }
+function redraw(){ const r = pad.getBoundingClientRect(), W = r.width, Hh = r.height; ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,pad.width,pad.height); ctx.restore();
+  $('padPh').classList.toggle('hidden', strokes.length > 0);
+  ctx.lineCap='round'; ctx.lineJoin='round'; ctx.strokeStyle='#0b1a4a';
+  for (const s of strokes) { for (let i = 0; i < s.length; i++) { const a = s[Math.max(0,i-1)], p = s[i];
+      ctx.beginPath(); ctx.lineWidth = 1.2 + 2.3*p.p; ctx.moveTo(a.x*W, a.y*Hh); ctx.lineTo(p.x*W + (i?0:0.1), p.y*Hh); ctx.stroke(); } } }
+function pos(e){ const r = pad.getBoundingClientRect();
+  // mouse/trackpad report pressure 0.5 (or 0 when hovering); pens/touch report real pressure
+  const p = e.pointerType === 'pen' && e.pressure > 0 ? e.pressure : 0.5;
+  return {x: Math.min(1, Math.max(0, (e.clientX-r.left)/r.width)), y: Math.min(1, Math.max(0, (e.clientY-r.top)/r.height)), p}; }
+pad.addEventListener('pointerdown', e => { if (activeId !== null || (e.pointerType === 'mouse' && e.button !== 0)) return;
+  e.preventDefault(); activeId = e.pointerId; try { pad.setPointerCapture(e.pointerId); } catch (_) {}
+  pts = [pos(e)]; strokes.push(pts); redraw(); });
+pad.addEventListener('pointermove', e => { if (e.pointerId !== activeId) return; e.preventDefault();
+  const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e]; for (const c of (evs.length ? evs : [e])) pts.push(pos(c)); redraw(); });
+const end = e => { if (e.pointerId !== activeId) return; activeId = null; try { pad.releasePointerCapture(e.pointerId); } catch (_) {}
+  if (pts.length) { drawn = true; pts = []; upd(); } };
+['pointerup','pointercancel','lostpointercapture'].forEach(t => pad.addEventListener(t, end));
+// belt and braces for browsers that ignore touch-action (older iOS Safari): never scroll/zoom while drawing
+['touchstart','touchmove'].forEach(t => pad.addEventListener(t, e => e.preventDefault(), {passive:false}));
+pad.addEventListener('contextmenu', e => e.preventDefault());
+pad.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setMode('type'); $('tabType').focus(); } });
+if (window.ResizeObserver) new ResizeObserver(sizePad).observe(pad); else window.addEventListener('resize', sizePad);
+window.addEventListener('orientationchange', () => setTimeout(sizePad, 200));
+$('clear').onclick = () => { strokes = []; drawn = false; redraw(); upd(); };
+
+function setMode(m){ mode = m; $('tabDraw').setAttribute('aria-selected', m==='draw'); $('tabType').setAttribute('aria-selected', m==='type');
+  $('tabDraw').tabIndex = m==='draw' ? 0 : -1; $('tabType').tabIndex = m==='type' ? 0 : -1;
+  $('drawPanel').classList.toggle('hidden', m!=='draw'); $('typePanel').classList.toggle('hidden', m!=='type');
+  if (m==='draw') sizePad(); else $('typed').focus(); upd(); }
+$('tabDraw').onclick = () => setMode('draw'); $('tabType').onclick = () => setMode('type');
+document.querySelector('.tabs').addEventListener('keydown', e => { if (['ArrowRight','ArrowLeft','Home','End'].includes(e.key)) { e.preventDefault(); const m = e.key==='Home' ? 'draw' : e.key==='End' ? 'type' : (mode==='draw'?'type':'draw'); setMode(m); $(m==='draw'?'tabDraw':'tabType').focus(); }});
+function updTyped(){ $('typedPreview').textContent = $('typed').value; }
+$('typed').oninput = () => { updTyped(); if (!$('name').dataset.touched) $('name').value = $('typed').value; upd(); };
+$('typed').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('consent').focus(); } });
+$('name').oninput = () => { $('name').dataset.touched = 1; };
+$('consent').onchange = upd;
+$('applyAll').onchange = () => upd();
+var SPOTS = 0;  // signature spots (not date fields); >1 needs the extra "apply to all" agreement
+function goToPad(){ if (heroOpen()) return; const t = mode === 'draw' ? pad : $('typed'); const card = $('signCard');
+  try { card.scrollIntoView({behavior: 'smooth', block: 'center'}); } catch (_) { card.scrollIntoView(); }
+  setTimeout(() => { try { t.focus({preventScroll: true}); } catch (_) { t.focus(); } }, 350); }
+function setSpots(boxes){ SB_BOXES = boxes || []; sbText(); SPOTS = (boxes || []).filter(b => b.kind !== 'date').length; heroSpots(SPOTS);
+  if (SPOTS > 1) { $('multi').classList.remove('hidden');
+    $('multiNote').textContent = 'This document has ' + SPOTS + ' signature spots. Your one signature will be placed on each of them.';
+    $('applyAllText').textContent = 'I agree this signature will be applied to all ' + SPOTS + ' signature spots in this document'; } }
+$('saveIt').onchange = upd;
+function has(){ if (savedSel) return true; return mode==='draw' ? drawn : $('typed').value.trim().length > 0; }
+function upd(){ sbText(); $('submit').disabled = !(has() && $('consent').checked && (SPOTS < 2 || $('applyAll').checked)); }
+
+function sigPng(){
+  if (mode === 'type') { const c = document.createElement('canvas'); c.width = 900; c.height = 300; const x = c.getContext('2d');
+    const t = $('typed').value.trim(); let fs = 150; x.fillStyle = '#0b1a4a';
+    do { x.font = fs + 'px "Segoe Script","Brush Script MT","Snell Roundhand",cursive'; fs -= 6; } while (x.measureText(t).width > 860 && fs > 30);
+    x.textBaseline = 'middle'; x.fillText(t, 20, 150); return c.toDataURL('image/png'); }
+  // crop to drawn bounds (strokes are normalised; convert to device pixels)
+  const r = pad.getBoundingClientRect(), d = pad.width / r.width, all = strokes.flat(), m = 8;
+  const xs = all.map(p=>p.x*r.width), ys = all.map(p=>p.y*r.height);
+  const minX = Math.max(0, Math.min(...xs) - m), minY = Math.max(0, Math.min(...ys) - m);
+  const maxX = Math.min(r.width, Math.max(...xs) + m), maxY = Math.min(r.height, Math.max(...ys) + m);
+  const c = document.createElement('canvas'); c.width = Math.max(1, Math.ceil((maxX-minX)*d)); c.height = Math.max(1, Math.ceil((maxY-minY)*d));
+  c.getContext('2d').drawImage(pad, minX*d, minY*d, c.width, c.height, 0, 0, c.width, c.height); return c.toDataURL('image/png');
+}
+function post(body){ $('submit').disabled = true; $('decline').disabled = true; $('msg').className=''; $('msg').textContent = 'Sending…';
+  return send(body).then(([ok, j]) => {
+      if (!ok) { $('msg').className='err'; $('msg').textContent = j.error || 'Something went wrong'; $('decline').disabled=false; upd(); return; }
+      closed(j.status === 'signed' ? 'Signed ✓' : 'Declined', j.status === 'signed' ? '' : 'The request was declined. You can close this page.');
+      if (j.status === 'signed') $('closed').classList.add('signed');
+      if (j.status === 'signed') afterSigned(j);
+    }).catch(() => { $('msg').className='err'; $('msg').textContent='Network error, please try again.'; $('decline').disabled=false; upd(); }); }
+$('submit').onclick = () => { if (!has() || !$('consent').checked || (SPOTS > 1 && !$('applyAll').checked)) return;
+  if (savedSel) return post({decision:'sign', signer_timezone: (()=>{try{return Intl.DateTimeFormat().resolvedOptions().timeZone||''}catch(_){return ''}})(), signer_utc_offset: -new Date().getTimezoneOffset(), signer_locale: (navigator.languages&&navigator.languages[0])||navigator.language||'', use_saved: savedSel, vault_nonce: nonce, signer_name: $('name').value.trim() || null, consent: true, signed_by_line: sbChecked()});
+  const save = $('saveIt').checked ? {save_as: $('saveAs').value} : {};
+  post(Object.assign(save, {decision:'sign', signer_timezone: (()=>{try{return Intl.DateTimeFormat().resolvedOptions().timeZone||''}catch(_){return ''}})(), signer_utc_offset: -new Date().getTimezoneOffset(), signer_locale: (navigator.languages&&navigator.languages[0])||navigator.language||'',  signature_png_base64: sigPng(), method: mode==='draw'?'drawn':'typed', typed_name: mode==='type'?$('typed').value.trim():null, signer_name: $('name').value.trim() || null, consent: true, signed_by_line: sbChecked()})); };
+$('decline').onclick = () => { let r = ''; try { r = prompt('Decline this request? Optional reason:', ''); } catch (_) {} if (r === null) return; post({decision:'decline', decline_reason: r || null}); };
+
+// ---- transport: local browser page (fetch) or MCP Apps in-chat view (JSON-RPC over postMessage) ----
+const MODE = '__GOTOQUILL_MODE__';
+let rpcId = 0, signToken = null; const waiting = {};
+function rpc(method, params){ return new Promise((res, rej) => { const id = ++rpcId; waiting[id] = {res, rej};
+  window.parent.postMessage({jsonrpc:'2.0', id, method, params}, '*'); }); }
+function notify(method, params){ window.parent.postMessage({jsonrpc:'2.0', method, params: params || {}}, '*'); }
+function unwrap(r){ let sc = r && r.structuredContent; if (!sc && r && r.content && r.content[0] && r.content[0].text) { try { sc = JSON.parse(r.content[0].text); } catch (_) {} }
+  return sc && sc.result && typeof sc.result === 'object' ? sc.result : sc; }
+function callTool(name, args){ return rpc('tools/call', {name, arguments: args}).then(unwrap); }
+// ---- after a successful Sign: tell the chat (MCP Apps ui/message) or show the signed message ----
+function withTimeout(p, ms){ return new Promise((res, rej) => { const t = setTimeout(() => rej(new Error('timeout')), ms);
+  p.then(v => { clearTimeout(t); res(v); }, e => { clearTimeout(t); rej(e); }); }); }
+function uiMessage(text){ // SDK/bridge form (content array); retry the single-block form from the spec text if rejected
+  return withTimeout(rpc('ui/message', {role: 'user', content: [{type: 'text', text}]}), 10000)
+    .catch(e => { if (e && e.message === 'timeout') throw e;
+      return withTimeout(rpc('ui/message', {role: 'user', content: {type: 'text', text}}), 10000); }); }
+function afterSigned(j){
+  const doc = (info && info.document_name) || 'the document', rt = info && info.return_to;
+  const text = 'I signed ' + doc + ' \u2705 Please send me the signed file.';
+  if (MODE !== 'mcp-app') return backToChat($('closed'), rt, doc);
+  const rid = j.request_id || '';
+  const ctx = 'gotoquill: the user signed "' + doc + '" in the in-chat view' + (rid ? ' (request_id ' + rid + ')' : '') +
+    '. Call get_signature_status' + (rid ? '(request_id="' + rid + '")' : '') + ' now and attach signed_pdf_path in the chat.';
+  withTimeout(rpc('ui/update-model-context', {content: [{type: 'text', text: ctx}],
+      structuredContent: {event: 'gotoquill signed', request_id: rid || null, document_name: doc, status: 'signed'}}), 3000)
+    .catch(() => {})
+    .then(() => uiMessage(text))
+    .then(() => { $('closedText').textContent = 'Thank you. Your assistant was told in the chat and will send you the signed PDF.'; },
+          () => backToChat($('closed'), rt, doc, {openLink: u => rpc('ui/open-link', {url: u})})); }
+let send, delSaved;
+if (MODE === 'mcp-app') {
+  delSaved = name => callTool('ui_delete_saved_signature', {sign_token: signToken, vault_nonce: nonce, name}).then(j => [!(j && j.error), j || {}]);
+  send = body => callTool('ui_submit_signature', Object.assign({sign_token: signToken}, body)).then(j => [!(j && j.error), j || {}]);
+  window.addEventListener('message', e => { const m = e.data; if (!m || m.jsonrpc !== '2.0') return;
+    if (m.id != null && !m.method && waiting[m.id]) { const w = waiting[m.id]; delete waiting[m.id];
+      return m.error ? w.rej(new Error(m.error.message || 'error')) : w.res(m.result); }
+    if (m.method === 'ui/resource-teardown' && m.id != null) return window.parent.postMessage({jsonrpc:'2.0', id: m.id, result: {}}, '*');
+    if (m.method === 'ui/notifications/tool-result') { const r = unwrap(m.params);
+      if (r && !r.error && !r.sign_token && r.sign_url) return closed('Sign with the secure link', 'Open this one-time link on your phone or here: ' + r.sign_url);
+      if (!r || r.error || !r.sign_token) return closed('Could not start signing', (r && r.error) || 'No signing request.');
+      signToken = r.sign_token;
+      if (r.sign_url) { const a = $('openBrowser'); a.classList.remove('hidden');
+        a.onclick = ev => { ev.preventDefault(); rpc('ui/open-link', {url: r.sign_url}).catch(() => {}); }; }
+      callTool('ui_load_document', {sign_token: signToken}).then(j => render(!(j && j.error), j || {}, p => j.pages[p-1]))
+        .catch(() => closed('Could not load', 'Please use the browser link instead.')); }
+    if (m.method === 'ui/notifications/tool-cancelled') closed('Cancelled', 'The signing request was cancelled.');
+  });
+  rpc('ui/initialize', {protocolVersion: '2026-01-26', clientInfo: {name: 'gotoquill', version: '0.2.0'},
+                        appCapabilities: {availableDisplayModes: ['inline']}})
+    .then(() => notify('ui/notifications/initialized')).catch(() => {});
+  if (window.ResizeObserver) new ResizeObserver(() => notify('ui/notifications/size-changed',
+    {width: document.documentElement.scrollWidth, height: document.documentElement.scrollHeight})).observe(document.body);
+} else {
+  delSaved = name => fetch(base + '/saved/delete', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({vault_nonce: nonce, name})})
+    .then(r => r.json().then(j => [r.ok, j]));
+  send = body => fetch(base + '/submit', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)})
+    .then(r => r.json().then(j => [r.ok, j]));
+  fetch(base + '/info').then(r => r.json().then(j => [r.ok, j])).then(([ok, j]) => render(ok, j, p => base + '/page/' + p + '.png'))
+    .catch(() => closed('Could not load', 'Check that the agent is still running and reload.'));
+}
+
+})();
+</script>
+</body>
+</html>

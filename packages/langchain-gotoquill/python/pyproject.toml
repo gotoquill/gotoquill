@@ -1,0 +1,16 @@
+[project]
+name = "langchain-gotoquill"
+version = "0.1.0a1"
+description = "LangChain helpers for Gotoquill MCP (draft)"
+requires-python = ">=3.11"
+dependencies = [
+  "langchain[mcp]>=1.4,<2",
+]
+license = { text = "Apache-2.0" }
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["langchain_gotoquill*"]

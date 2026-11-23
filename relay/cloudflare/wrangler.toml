@@ -1,0 +1,24 @@
+# gotoquill relay. deploy on YOUR Cloudflare account.
+# DEMO=1 keeps the testing-only /health notice; set DEMO=0 for production.
+# One-command: CLOUDFLARE_API_TOKEN=... ./deploy.sh
+# Or: npx wrangler deploy
+name = "gotoquill-relay"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+workers_dev = true
+
+[[kv_namespaces]]
+binding = "BOXES"
+# Filled by ./deploy.sh (or: npx wrangler kv namespace create BOXES)
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+preview_id = "REPLACE_WITH_KV_PREVIEW_ID"
+
+[vars]
+DEMO = "1"
+DEFAULT_TTL = "3600"
+MAX_TTL = "86400"
+MAX_BYTES = "1048576"
+RATE_MAX = "30"
+# Replace with your abuse mailbox:
+ABUSE_CONTACT = "abuse@example.com"
+NOTICE = "demo / for testing only, no uptime guarantee, may be rate limited or shut down at any time; deploy your own for production"

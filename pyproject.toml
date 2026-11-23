@@ -1,0 +1,61 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "gotoquill"
+version = "0.2.0"
+description = "Human-confirmed PDF signing for MCP agents, with local processing and browser consent."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md", "web/vendor/LICENSE.noble-ciphers"]
+authors = [{ name = "Shay Levi", email = "support@gotoquill.com" }]
+requires-python = ">=3.10"
+dependencies = ["fastapi>=0.110", "uvicorn>=0.27", "pdfplumber>=0.11", "pypdf>=7.0.1", "reportlab>=4", "pypdfium2>=4.30", "pillow>=10", "mcp>=1.25", "platformdirs>=3", "keyring>=24", "cryptography>=41", "segno>=1.5"]
+
+keywords = ["mcp", "model-context-protocol", "ai-agent", "pdf", "signature", "e-signature", "sign", "llm"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Intended Audience :: End Users/Desktop",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Office/Business",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Security :: Cryptography",
+]
+
+[project.urls]
+Homepage = "https://gotoquill.com"
+Documentation = "https://gotoquill.com/docs/connect/"
+Source = "https://github.com/gotoquill/gotoquill"
+Issues = "https://github.com/gotoquill/gotoquill/issues"
+Changelog = "https://github.com/gotoquill/gotoquill/blob/main/CHANGELOG.md"
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "httpx>=0.27", "playwright>=1.40"]
+
+[project.scripts]
+gotoquill = "gotoquill.cli:main"
+agent-sign = "gotoquill.cli:main"  # deprecated alias
+
+[tool.hatch.build.targets.wheel]
+packages = ["gotoquill"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"schemas/functions.json" = "gotoquill/functions.json"
+"web/index.html" = "gotoquill/web/index.html"
+"web/sign.js" = "gotoquill/web/sign.js"
+"web/vendor/LICENSE.noble-ciphers" = "gotoquill/web/vendor/LICENSE.noble-ciphers"
+
+[tool.hatch.build.targets.sdist]
+include = ["/gotoquill", "/web/index.html", "/web/sign.js", "/web/vendor/LICENSE.noble-ciphers", "/schemas/functions.json", "/README.md", "/LICENSE", "/NOTICE", "/THIRD_PARTY_NOTICES.md", "/pyproject.toml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
