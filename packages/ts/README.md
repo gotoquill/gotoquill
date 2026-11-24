@@ -1,7 +1,6 @@
 # gotoquill (TypeScript draft)
 
-TypeScript core and stdio MCP for Gotoquill. Private package; not published to
-npm.
+TypeScript core and stdio MCP for Gotoquill. Not published to npm.
 
 ```bash
 npm install
