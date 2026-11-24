@@ -64,3 +64,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --generate-notes
+
+  publish-mcp-registry:
+    needs: publish-pypi
+    uses: ./.github/workflows/publish-mcp-registry.yml
+    permissions:
+      id-token: write
+      contents: read
