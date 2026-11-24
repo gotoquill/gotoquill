@@ -1,6 +1,6 @@
 # gotoquill (TypeScript draft)
 
-TypeScript core and stdio MCP for Gotoquill. Not published to npm yet.
+TypeScript core and stdio MCP for Gotoquill. Not published to npm.
 
 ```bash
 npm install
