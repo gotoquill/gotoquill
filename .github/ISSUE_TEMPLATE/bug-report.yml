@@ -1,30 +1,53 @@
 name: Bug report
-description: Report a reproducible problem
+description: Report something that is broken and can be reproduced
 labels: [bug]
 body:
   - type: markdown
     attributes:
-      value: Please omit personal documents, signatures, signing links, and secrets. Report vulnerabilities privately through Security Advisories.
+      value: Use a synthetic PDF such as `examples/sample_contract.pdf` and made-up names such as Dana Cohen. Do not attach real or signed documents, signatures, personal data, credentials, pairing codes, or signing links that contain a `#` key. Do not report security vulnerabilities here. See [SECURITY.md](https://github.com/gotoquill/gotoquill/blob/main/SECURITY.md).
   - type: dropdown
     id: assistant
     attributes:
       label: Assistant or host
+      description: Where you used gotoquill.
       options: [ChatGPT, Claude, Gemini, Le Chat, Muse, Other / local MCP]
     validations:
       required: true
-  - type: textarea
-    id: problem
+  - type: dropdown
+    id: delivery
     attributes:
-      label: What happened and what did you expect?
+      label: Delivery mode
+      options: [Sealed link, Local or in-chat page, File, Not sure]
+  - type: textarea
+    id: happened
+    attributes:
+      label: What happened?
+      description: What you saw, including any error message.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+      description: What should have happened instead.
     validations:
       required: true
   - type: textarea
     id: reproduce
     attributes:
-      label: Steps to reproduce using a synthetic PDF
+      label: Steps to reproduce
+      description: Numbered steps using a synthetic PDF, so someone else can see the same problem.
     validations:
       required: true
   - type: input
     id: environment
     attributes:
-      label: Gotoquill version, operating system, and browser
+      label: Environment
+      description: gotoquill version (`pip show gotoquill`), operating system, Python version, and browser or phone if the signing page is involved.
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Relevant output
+      description: Paste error text or log lines. Remove tokens, pairing codes, signing links and document contents first.

@@ -6,15 +6,18 @@ body:
     id: host
     attributes:
       label: Assistant or host name and version
+      description: For example the app name and its version or release date.
     validations:
       required: true
   - type: input
     id: docs
     attributes:
       label: Public integration documentation URL
+      description: A public link describing how the host supports MCP or MCP Apps.
   - type: textarea
     id: workflow
     attributes:
       label: Desired signing workflow and current limitations
+      description: What you want to do and what stops it today.
     validations:
       required: true

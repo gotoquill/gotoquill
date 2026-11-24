@@ -1,16 +1,26 @@
-name: Feature request
-description: Suggest an improvement to human-confirmed PDF signing
+name: Feature idea
+description: Suggest a new capability for human-confirmed PDF signing
 labels: [enhancement]
 body:
+  - type: markdown
+    attributes:
+      value: gotoquill is signing only. Form filling, document editing and general PDF tools are out of scope. For looser ideas, use [Discussions](https://github.com/gotoquill/gotoquill/discussions/categories/ideas).
   - type: textarea
     id: need
     attributes:
       label: What would you like to do, and why?
+      description: The problem or need behind the idea.
     validations:
       required: true
   - type: textarea
     id: proposal
     attributes:
-      label: Suggested behavior and alternatives
+      label: Suggested behavior
+      description: How it could work from the signer's or agent's side.
     validations:
       required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Workarounds or other approaches you have tried.

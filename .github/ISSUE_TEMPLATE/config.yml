@@ -1,11 +1,14 @@
 blank_issues_enabled: false
 contact_links:
+  - name: Questions and ideas
+    url: https://github.com/gotoquill/gotoquill/discussions
+    about: Ask a question or share a loose idea in GitHub Discussions (Q&A and Ideas).
   - name: Support
     url: https://gotoquill.com/support/
     about: Setup guides and help using Gotoquill.
   - name: Feedback without GitHub
     url: https://gotoquill.com/feedback/
-    about: Report a problem without a GitHub account.
+    about: Send a problem or idea without a GitHub account.
   - name: Report a security vulnerability
-    url: mailto:support@gotoquill.com?subject=Security%20report
-    about: Report security problems privately.
+    url: https://github.com/gotoquill/gotoquill/blob/main/SECURITY.md
+    about: Do not open a public issue. Report privately; see SECURITY.md.

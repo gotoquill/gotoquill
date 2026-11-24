@@ -3,8 +3,8 @@
 ## Unreleased
 
 - Clarify Local Apache 2.0 licensing and the separate hosted Cloud service. Include the CLA, trademark policy and English/Hebrew Cloud data-handling texts approved on 23 November 2026 (Asia/Jerusalem). CLA signing remains inactive.
-- Prepare the reviewed Local source tree for a future public repository. Repository and package publication require separate owner approval.
+- Document the public contribution process: issue templates for bugs, improvements, feature ideas and assistant support requests, GitHub Discussions for questions, and how accepted pull requests reach `main` through an export.
 
 ## Local 0.2.0
 
-The exported package declares version 0.2.0. Earlier private development history is not imported. This does not assert that a package release has been published.
+The exported package declares version 0.2.0. Earlier private development history is not imported. Local 0.2.0 is published on PyPI.

@@ -2,26 +2,44 @@
 
 ## Reporting a vulnerability
 
-Please **do not** open a public issue for security problems.
+Please **do not** open a public GitHub issue for security problems.
 
-Email support@gotoquill.com with subject "Security report". If private vulnerability reporting is enabled in the public repository, you may also use its Security tab. Do not use the general feedback form for vulnerability details.
+Report privately through either channel:
 
-Include what you found, how to reproduce it and the impact you expect. Please don't include real
-signed documents, personal data or links that contain a `#` key.
+- GitHub private vulnerability reporting:
+  [Report a vulnerability](https://github.com/gotoquill/gotoquill/security/advisories/new)
+  (repository → **Security** → **Report a vulnerability**).
+- Email: [hello@gotoquill.com](mailto:hello@gotoquill.com). A subject line such as "Security report" helps.
+
+Do not use the general feedback form for vulnerability details.
+
+Reports in English or Hebrew are welcome.
+
+## What to include
+
+- What you found and where (local package, hosted Cloud service, relay or website).
+- Steps to reproduce.
+- The impact you expect.
+- The version you tested, if relevant.
+
+Please do **not** include real signed documents, personal data, credentials or links that contain a `#` key.
+The part of a sealed link after `#` holds the decryption key. Use `examples/sample_contract.pdf` or a document
+you made for testing.
 
 ## What to expect
 
-This is a volunteer-maintained open-source project. Handling of reports is **best-effort**:
+Gotoquill is a volunteer-maintained open-source project with a hosted Cloud service. Handling of reports is
+**best-effort**:
+
 - there is no service level agreement (SLA);
 - there is no guaranteed response or fix time;
-- there is no bug bounty.
+- there is no bug bounty, and reports are not paid.
 
-The maintainer aims to acknowledge reports within a reasonable time. Once a fix is released, the
-advisory may be published, and you are credited unless you ask not to be.
+The maintainer aims to acknowledge reports within a reasonable time. Once a fix is released, an advisory may
+be published, and you are credited unless you ask not to be.
 
 The software is provided "as is", without warranty of any kind. See [LICENSE](LICENSE) (sections 7 and 8)
-and [DISCLAIMER.md](DISCLAIMER.md). Reporting or fixing an issue does not create any warranty, support
-obligation or liability.
+and [DISCLAIMER.md](DISCLAIMER.md).
 
 ## Supported versions
 
@@ -30,6 +48,7 @@ Only the latest released version may get security fixes.
 ## Scope
 
 Of special interest:
+
 - hosted Cloud Worker and site authentication, tenant isolation, operator exports and account erasure;
 - OAuth sessions, token rotation, revocation and replay protection;
 - hosted document retention, capability responses and lifecycle cleanup;

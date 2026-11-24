@@ -47,7 +47,7 @@ saved next to the original file, on the agent's computer.
 
 ## Install
 
-Python 3.10 or later and [uv](https://docs.astral.sh/uv/) are required:
+Python 3.10 through 3.13 and [uv](https://docs.astral.sh/uv/) are required:
 
 ```bash
 uvx gotoquill mcp
@@ -55,8 +55,7 @@ uvx gotoquill mcp
 
 For a persistent executable (including self-hosted Rakazo), use `uv tool install gotoquill`,
 then `gotoquill mcp`. Use an absolute executable path if your host does not inherit your PATH.
-Developers can clone [the source](https://github.com/gotoquill/gotoquill) and install with
-`python -m pip install -e '.[dev]'` in a virtual environment.
+Developers can clone [the source](https://github.com/gotoquill/gotoquill) and follow the setup in [CONTRIBUTING.md](CONTRIBUTING.md#development).
 
 Choose Cloud or Local and follow Choose / Connect / Verify / Switch at the
 [connection chooser](https://gotoquill.com/#connect). Connect and verify the
@@ -482,12 +481,16 @@ tools.call(name, arguments)           # run a tool call (arguments: dict or JSON
 
 ## Develop
 
+Development uses Python 3.10 to 3.13, [uv](https://docs.astral.sh/uv/), and poppler (`pdftoppm`, used by the render tests). See [CONTRIBUTING.md](CONTRIBUTING.md#development) for install notes for each OS.
+
 ```bash
 uv venv && . .venv/bin/activate && uv pip install -e '.[dev]'
-pytest -q
+python -m pytest -q
 python examples/e2e_demo.py /tmp/demo   # real stdio MCP client + headless Chrome, both paths
 python examples/e2e_sealed.py /tmp/demo # web/ on 127.0.0.1 + REAL ntfy.sh + phone-size Chrome
 ```
+
+The pytest suite runs offline. The two example scripts are optional end-to-end checks. Both need Chrome, and `e2e_sealed.py` uses the real ntfy.sh service.
 
 See [License](#license).
 
@@ -516,7 +519,7 @@ out to [@shay2301](https://github.com/shay2301).
 
 ## Contributing
 
-Contributions and issue reports are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md). The [Contributor License Agreement](CLA.md) is approved but not yet in force. Signing is inactive and requires a separate maintainer decision.
+Contributions and issue reports are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) first. Use the issue templates for bugs and ideas, [Discussions](https://github.com/gotoquill/gotoquill/discussions) for questions, and [SECURITY.md](SECURITY.md) for anything security related. This repository is exported from the maintainer's source tree, so accepted pull requests land through the next export with credit, not through the Merge button. An accepted PR is closed with a link to its export commit. The [Contributor License Agreement](CLA.md) is approved but not yet in force. Signing is inactive and requires a separate maintainer decision.
 
 ## Disclaimer
 
