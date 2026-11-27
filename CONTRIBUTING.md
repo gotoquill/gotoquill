@@ -64,7 +64,7 @@ Then set up and run the tests:
 
 ```bash
 uv venv && . .venv/bin/activate && uv pip install -e '.[dev]'
-python -m pytest -q
+# Run explicit affected tests while iterating; use the scope rule below.
 ```
 
 On Windows, activate with `.venv\Scripts\activate` instead.
@@ -72,12 +72,19 @@ On Windows, activate with `.venv\Scripts\activate` instead.
 - Keep changes focused.
 - **Tests are required.** Every bug fix comes with a test that fails without the fix, and every feature
   comes with tests. Tests must not touch the network: use the `fake_relay` fixture and mock `urlopen`.
-  The full `pytest -q` run must pass.
+  Follow the test scope rule below.
 - Don't add new runtime dependencies or vendored code without discussing it first. Any third-party code must
   be compatible with Apache-2.0 and be listed in `THIRD_PARTY_NOTICES.md` and `NOTICE`.
 - `web/` must stay dependency-free and self-contained (no CDNs).
 
-CI runs automatically on pull requests and on pushes to `main`. It runs pytest on Python 3.10 to 3.13 with poppler installed. For a first-time contributor, GitHub may ask the maintainer to approve the workflow run before it starts.
+CI selects affected areas on pull requests and pushes to `main`, with Python 3.10 and 3.13 for Python changes. Weekly, manual, and release-tag verification runs validate all areas on Python 3.10 through 3.13. Release publication waits for full verification. For a first-time contributor, GitHub may ask the maintainer to approve the workflow run before it starts.
+
+### Test scope
+
+1. Small isolated edits: run explicit affected tests on one interpreter/runtime while iterating. Ordinary prose-only docs need no application suite; packaged copy and policy contracts still do.
+2. Shared PDF stamping, MCP tools, auth, encryption, dependencies, common fixtures, or uncertain impact: run the full affected area before opening the PR.
+3. Risky or cross-area changes: run full repository validation before merge to main. Use `workflow_dispatch` if PR filters would skip needed jobs. Full release validation must pass before publication.
+4. Wait only for required CI in repositories actually changed. Do not rerun `test:workerd` after `npm test`. Record what was run.
 
 ## Pull request process
 
