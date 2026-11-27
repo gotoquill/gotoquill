@@ -1,3 +1,4 @@
+import { textBounds } from './text-layout.js';
 /**
  * PDF inspect + stamp via pdf-lib.
  * Coordinates: PDF points, origin top-left (same as Python gotoquill.pdf).
@@ -157,8 +158,15 @@ export async function stampPdf(opts: {
 
     if (kind === "date") {
       const text = dateText;
-      const fs = Math.max(6, Math.min(12, box.height * 0.75));
-      page.drawText(text, { x: box.x + 1, y: box.y + 2, size: fs, font, color: rgb(0, 0, 0) });
+      const pad = Math.min(2, box.width / 8, box.height / 8);
+      const [left, bottom, right, top] = textBounds(text, font);
+      const fs = Math.min(11, (box.width - 2 * pad) / Math.max(right - left, 0.001),
+        (box.height - 2 * pad) / Math.max(top - bottom, 0.001));
+      page.drawText(text, {
+        x: box.x + box.width / 2 - (left + right) * fs / 2,
+        y: box.y + box.height / 2 - (top + bottom) * fs / 2,
+        size: fs, font, color: rgb(0, 0, 0),
+      });
       continue;
     }
 

@@ -269,15 +269,9 @@ def find_date_spot(page, sig_rect: "pdfdoc.Rect") -> "pdfdoc.Rect | None":
 
 
 def _write_date(page, rect: "pdfdoc.Rect", text: str, rtl: bool = False) -> None:
-    from reportlab.pdfbase.pdfmetrics import getAscentDescent
-    pad = min(2.0, rect.width / 8, rect.height / 8)
-    ascent, descent = getAscentDescent(pdfdoc.FONT, 1)
-    fs = min(11.0, (rect.width - 2 * pad) / max(pdfdoc.text_length(text, 1), 0.001),
-             (rect.height - 2 * pad) / (ascent - descent))
-    tw = pdfdoc.text_length(text, fs)
-    x = rect.x1 - tw - pad if rtl else rect.x0 + pad
-    baseline = rect.y0 + pad + (rect.height - 2 * pad - (ascent - descent) * fs) / 2 + ascent * fs
-    page.insert_text((x, baseline), text, fontsize=fs)
+    from .text_layout import write_box_text
+    write_box_text(page, rect, text)
+
 
 
 def _page_is_rtl(page) -> bool:
@@ -358,7 +352,8 @@ def stamp_plan(data: bytes, placements: list[dict]) -> dict:
                     ops.append({"kind": "proof", "page": idx, "rect": list(proof),
                                 "date_format": fmt, "font_size": 8,
                                 "baseline_inset": 2.5, "color": [0.25, 0.25, 0.25]})
-        return {"version": 1, "coordinates": "cropbox-top-left", "font": "Helvetica",
+        from .text_layout import glyph_metrics
+        return {"glyph_bounds": glyph_metrics()["Helvetica"], "version": 1, "coordinates": "cropbox-top-left", "font": "Helvetica",
                 "ascent": 0.718, "descent": -0.207, "date_font_size": 11,
                 "operations": ops, "remove_widgets": removals, "zone_names": zone_names}
 

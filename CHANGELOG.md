@@ -1,6 +1,11 @@
 # Changelog
 
-## Unreleased
+## Local 0.3.0 - 2026-11-27
+
+- Use numeric signing dates, with a remembered American date checkbox and signer timezone handling.
+- Center signatures, dates and typed text in their placement boxes, preserving padding and shrinking to fit.
+- Offer signed PDF download and sharing immediately after signing.
+- Keep spot roles and numbering consistent, including bidirectional Hebrew labels.
 
 - Add root Agent Plugins manifests for the hosted Cloud MCP, supported by Cursor Marketplace, and the official logo asset.
 - Fix drawn-signature export after the signing pad closes. Capture before animation, validate visible PNG ink in the browser and Python, and preserve strokes on retry.

@@ -1,5 +1,5 @@
 """gotoquill: let any AI agent get a human signature on a local PDF."""
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 
 def sign_pdf(pdf_path: str, timeout: float | None = None, **kw):

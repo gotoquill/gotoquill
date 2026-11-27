@@ -3,7 +3,7 @@
   "name": "io.github.gotoquill/gotoquill",
   "title": "gotoquill",
   "description": "Human-confirmed PDF signing. Local stdio via PyPI; hosted Cloud with OAuth.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "websiteUrl": "https://gotoquill.com/docs/connect/",
   "icons": [
     {
@@ -21,7 +21,7 @@
       "registryType": "pypi",
       "registryBaseUrl": "https://pypi.org",
       "identifier": "gotoquill",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "runtimeHint": "uvx",
       "transport": {
         "type": "stdio"

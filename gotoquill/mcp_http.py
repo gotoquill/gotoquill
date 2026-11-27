@@ -81,7 +81,7 @@ def create_http_app(*, pairing_code: str | None = None, public_base: str | None 
         async with session_manager.run():
             yield
 
-    app = FastAPI(title="gotoquill remote MCP", version="0.2.0", lifespan=lifespan)
+    app = FastAPI(title="gotoquill remote MCP", version="0.3.0", lifespan=lifespan)
     mount_oauth_routes(app, store, code, mcp_path=mcp_path)
 
     @app.get("/healthz")
