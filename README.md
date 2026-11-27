@@ -225,7 +225,7 @@ No chat host wakes the model on its own, so gotoquill also makes it one tap for 
   *"I signed <document> ✅ Please send me the signed file."* into the chat as a user message (and, if supported,
   `ui/update-model-context` with the request id), so the conversation continues by itself. If the host supports
   neither, the view shows the signed message instead.
-- **Every browser page** (sealed link, link-file, offline file, local page) ends on a clean "Signed ✓" screen with
+- **Connected browser pages** (sealed link, link-file, local page) ends on a clean "Signed ✓" screen with
   *"You can close this window and go back to the chat. Your signed document will be waiting for you there."* There is no close button: a page cannot close the chat app's viewer
   (see [docs/back-to-chat.md](docs/back-to-chat.md)). Pass `return_to` to add a subtle **Return to chat** text link,
   pre-filled with "I signed … ✅":
@@ -239,8 +239,7 @@ No chat host wakes the model on its own, so gotoquill also makes it one tap for 
 
   Only allow-listed schemes are accepted (no `javascript:`, `data:`, `file:` or `http:`), and the value is checked
   again in the page. For sealed links it travels **inside the encrypted request**, not in the URL. Without
-  `return_to` there is no link, only the message. In the offline file the pre-filled reply carries the signature code
-  when it is short enough; otherwise the human sends the reply file first.
+  `return_to` there is no link, only the message. For offline files, attach the signature receipt in the chat; the return link alone does not return the signature.
 
   CLI: `gotoquill sign contract.pdf --return-to whatsapp:+15550102000`.
 
@@ -386,19 +385,24 @@ agent runs in the cloud and you are on your Android phone. Then use file mode:
 
 1. The agent calls `request_signature(pdf_path, delivery="file")`. It writes
    one file, like `Contract - sign.html`, and sends it to you in the chat.
-2. You open it on any phone or computer (Downloads, Files app, any browser).
-   It works offline: the pages are inside the file and it never connects to
-   anything. You see the document with blue "Sign here" boxes, draw or type
-   your signature, tick the consent box and tap **Sign and approve**.
-3. The page makes a compact response code (`GOTOQUILL1…`). Tap **Copy
-   response code** and paste it back into the same chat that sent the HTML
-   (closing the tab does nothing by itself). On Android/iOS you can also tap
-   **Share reply file** to use the system share sheet. **Save reply file**
-   stays under "Other ways to send it back".
-4. The agent calls `apply_signature_response(request_id, response_text=...)`
-   with the pasted code (or `response_path=` for the `.gotoquill` file). The
-   signed PDF and audit JSON are written; the audit says
-   `"delivery": "file via chat"`.
+2. Download the HTML and open it in Chrome, including directly from Downloads
+   (`file://`). It works without a relay, tunnel or internet connection. The
+   original PDF and vendored rendering/stamping libraries are inside the file.
+   Review the document, zoom if needed, draw or type your signature, tick the
+   consent box and tap **Adopt & sign**.
+3. Tap **Download signature receipt** and attach `Contract signature.gotoquill`
+   in the same chat. **Share receipt** uses the system share sheet when available.
+   You can also **Download signed PDF** (`Contract signed.pdf`) or **Share** it.
+   The `GOTOQUILL1` response code remains inside **Response code fallback**.
+4. The agent calls `apply_signature_response(request_id, response_path=...)`
+   with the receipt. Python writes the authoritative signed PDF and audit JSON.
+   The audit records `browser_pdf_sha256` (reported by the browser) and
+   `python_pdf_sha256`. These PDFs use the same placement plan but are **not
+   claimed byte-identical**. The small receipt contains the signature, proof and
+   browser PDF hash, never the full signed PDF.
+
+File mode embeds the original PDF once, rather than full-page PNGs. It uses
+the configured PDF page/byte limits; there is no separate 60-page image limit.
 
 Safety: the reply only works for that one request and that exact document
 (request id, document SHA-256 and an HMAC proof made with a key that is only
@@ -409,13 +413,19 @@ file like a one-time link: whoever has it can sign that one request.
 
 ## Command line
 
+When more than one signature candidate is found, choose `--spots first`, `last`,
+`all` or comma-separated numbers from `--list-spots`. The CLI requires an explicit
+choice before it creates a request. This applies to every delivery mode.
+
 ```bash
 gotoquill sign contract.pdf --link          # sealed link + QR code in the terminal, waits
 gotoquill sign contract.pdf                 # opens the browser, waits, prints JSON
 gotoquill sign contract.pdf -o out.pdf --signer-name "Dana" --add-date
 gotoquill sign contract.pdf --no-browser    # just print the link
 gotoquill sign contract.pdf --file-mode     # no connection: write "Contract - sign.html"
-gotoquill apply req_123 "Contract - signature.gotoquill"   # or paste the GOTOQUILL1 code
+gotoquill sign contract.pdf --list-spots    # list stable numbered signature candidates
+gotoquill sign contract.pdf --spots 1,3 --file-mode  # only selected signature roles and nearby dates
+gotoquill apply req_123 "Contract signature.gotoquill"   # or paste the GOTOQUILL1 code
 gotoquill sign contract.pdf --link --no-wait --on-complete-command 'notify-send "$GOTOQUILL_STATUS"'
 gotoquill wait req_123 --timeout 3600       # blocks; exit 0 signed, 3 declined, 4 expired, 5 cancelled, 6 timeout
 gotoquill mcp                               # run the MCP server (stdio); also the default

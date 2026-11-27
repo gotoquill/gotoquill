@@ -8,7 +8,7 @@ version = "0.2.0"
 description = "Human-confirmed PDF signing for MCP agents, with local processing and browser consent."
 readme = "README.md"
 license = "Apache-2.0"
-license-files = ["LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md", "web/vendor/LICENSE.noble-ciphers"]
+license-files = ["LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md", "web/vendor/LICENSE.noble-ciphers", "web/vendor/LICENSE.pdf-lib", "web/vendor/LICENSE.pdfjs"]
 authors = [{ name = "Shay Levi", email = "support@gotoquill.com" }]
 requires-python = ">=3.10"
 dependencies = ["fastapi>=0.110", "uvicorn>=0.27", "pdfplumber>=0.11", "pypdf>=7.0.1", "reportlab>=4", "pypdfium2>=4.30", "pillow>=10", "mcp>=1.25", "platformdirs>=3", "keyring>=24", "cryptography>=41", "segno>=1.5"]
@@ -52,10 +52,10 @@ packages = ["gotoquill"]
 "schemas/functions.json" = "gotoquill/functions.json"
 "web/index.html" = "gotoquill/web/index.html"
 "web/sign.js" = "gotoquill/web/sign.js"
-"web/vendor/LICENSE.noble-ciphers" = "gotoquill/web/vendor/LICENSE.noble-ciphers"
+"web/vendor" = "gotoquill/web/vendor"
 
 [tool.hatch.build.targets.sdist]
-include = ["/gotoquill", "/web/index.html", "/web/sign.js", "/web/vendor/LICENSE.noble-ciphers", "/schemas/functions.json", "/README.md", "/LICENSE", "/NOTICE", "/THIRD_PARTY_NOTICES.md", "/pyproject.toml"]
+include = ["/gotoquill", "/web/index.html", "/web/sign.js", "/web/vendor", "/schemas/functions.json", "/README.md", "/LICENSE", "/NOTICE", "/THIRD_PARTY_NOTICES.md", "/pyproject.toml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

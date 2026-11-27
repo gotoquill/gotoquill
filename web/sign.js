@@ -61,20 +61,6 @@ function backToChat(box, rt, docName, opts){ opts = opts || {};
   if (typeof heroReceipt === 'function') heroReceipt(box);
   box.appendChild(wrap); return {url, text}; }
 /* back-to-chat:end */
-// Web-only capture before the shared hero animation hides the signing pad.
-function heroCaptureSignature(){
-  // Capture PNG while the sheet (and pad) are still laid out. closing first made mobile
-  // Safari/Chrome submit data:, which Cloud rejects as empty signature_png.
-  try { CAPTURED_SIG = sigPng(); } catch (_) { CAPTURED_SIG = null; }
-  if (emptyDataUrl(CAPTURED_SIG)) {
-    CAPTURED_SIG = null;
-    const msg = heroId('msg') || $('msg');
-    if (msg) { msg.className = 'err'; msg.textContent = 'Could not capture your signature. Try Type, or redraw and sign again.'; }
-    return false;
-  }
-  return true;
-}
-
 /* hero:start (same block in web/sign.js, static/sign.html, static/offline.html; tests check they match) */
 // Document-first layout: full-width pages, top bar with progress, sticky "Review & sign", signing in a bottom sheet
 // (<dialog showModal> top-layer). Also runs inside sandboxed iframes (Muse / in-app WebViews).
@@ -137,10 +123,26 @@ function sbStrf(fmt, locale){ if (!fmt || fmt === 'auto' || fmt === 'locale') re
   while (i < fmt.length) { const t = SB_TOK.find(([k]) => fmt.startsWith(k, i));
     if (t) { out += t[1]; i += t[0].length; } else { out += fmt[i]; i += 1; } }
   return out; }
-function sbDate(d, strf){ const p = (n, w) => String(n).padStart(w || 2, '0');
-  return strf.replace(/%(.)/g, (m, c) => ({Y: p(d.getFullYear(), 4), y: p(d.getFullYear() % 100), m: p(d.getMonth() + 1), d: p(d.getDate()),
-    H: p(d.getHours()), M: p(d.getMinutes()), S: p(d.getSeconds()), b: SB_MON[d.getMonth()].slice(0, 3), B: SB_MON[d.getMonth()],
-    a: SB_DAY[d.getDay()].slice(0, 3), A: SB_DAY[d.getDay()], '%': '%'})[c] ?? m); }
+function sbDate(d, strf, zoneName){
+  const pad=(n,w=2,ch='0')=>String(n).padStart(w,ch), year=d.getFullYear(), month=d.getMonth(), day=d.getDay();
+  const midnight=Date.UTC(year,month,d.getDate()), jan1=Date.UTC(year,0,1), doy=Math.round((midnight-jan1)/86400000)+1;
+  const thu=new Date(midnight);thu.setUTCDate(thu.getUTCDate()+3-(day+6)%7);
+  const isoYear=thu.getUTCFullYear(), isoWeek=1+Math.round((thu-Date.UTC(isoYear,0,4)+(new Date(Date.UTC(isoYear,0,4)).getUTCDay()+6)%7*86400000)/604800000);
+  const off=-d.getTimezoneOffset(), z=(off>=0?'+':'-')+pad(Math.floor(Math.abs(off)/60))+pad(Math.abs(off)%60);
+  if(!zoneName){try{zoneName=new Intl.DateTimeFormat('en-US',{timeZoneName:'short'}).formatToParts(d).find(x=>x.type==='timeZoneName').value;}catch(_){zoneName='UTC';}}
+  const values={Y:pad(year,4),y:pad(year%100),C:pad(Math.floor(year/100)),m:pad(month+1),d:pad(d.getDate()),e:pad(d.getDate(),2,' '),
+    H:pad(d.getHours()),I:pad(d.getHours()%12||12),M:pad(d.getMinutes()),S:pad(d.getSeconds()),f:pad(d.getMilliseconds()*1000,6),p:d.getHours()<12?'AM':'PM',
+    b:SB_MON[month].slice(0,3),h:SB_MON[month].slice(0,3),B:SB_MON[month],a:SB_DAY[day].slice(0,3),A:SB_DAY[day],
+    w:String(day),u:String((day+6)%7+1),j:pad(doy,3),U:pad(Math.floor((doy+6-day)/7)),W:pad(Math.floor((doy+6-(day+6)%7)/7)),
+    G:pad(isoYear,4),g:pad(isoYear%100),V:pad(isoWeek),z,Z:zoneName,n:'\n',t:'\t','%':'%'};
+  const composite={c:'%a %b %e %H:%M:%S %Y',x:'%m/%d/%y',X:'%H:%M:%S',D:'%m/%d/%y',F:'%Y-%m-%d',R:'%H:%M',T:'%H:%M:%S',r:'%I:%M:%S %p'};
+  return strf.replace(/%([-_0]?)([a-zA-Z%])/g,(m,flag,c)=>{
+    let value=composite[c]?sbDate(d,composite[c],zoneName):values[c]; if(value===undefined)return m;
+    if(flag==='-')value=value.replace(/^0+(?=\d)/,'');
+    if(flag==='_')value=value.replace(/^0+/g,x=>' '.repeat(x.length));
+    return value;
+  });
+}
 function sbFmt(){ let f = null; try { const b = (typeof D !== 'undefined' && D && D.boxes) || SB_BOXES || [];
     const s = b.find(x => x.kind !== 'date' && x.date_format); if (s) f = s.date_format; } catch (_) {}
   return sbStrf(f, sbLocale()); }
@@ -248,10 +250,10 @@ async function heroFly(){ const src = heroSigSrc(), spots = Array.from(document.
       await heroWait(430); f.remove(); }
     heroPlace(box, src); await heroWait(190); }
   await heroWait(300); }
-function heroIntercept(e){ const t = e.target && e.target.closest ? e.target.closest('#submit') : null;
+async function heroIntercept(e){ const t = e.target && e.target.closest ? e.target.closest('#submit') : null;
   if (!t || !HERO.on || HERO.go || t.disabled) return;
   e.preventDefault(); e.stopImmediatePropagation(); t.disabled = true;
-  if (typeof heroCaptureSignature === 'function' && !heroCaptureSignature()) { t.disabled = false; return; }
+  if (typeof heroCaptureSignature === 'function' && !await heroCaptureSignature()) { t.disabled = false; return; }
   heroFly().catch(() => {}).then(() => { const cb = heroId('heroOpen'); if (cb) cb.textContent = 'Sending\u2026'; HERO.go = true; HERO.t1 = Date.now(); t.disabled = false; t.click(); }); }
 function heroReceipt(box){ if (!box || box.querySelector('.heroCheck')) return; if (!HERO.t1) HERO.t1 = Date.now();
   box.classList.add('signed', 'heroReceipt'); const ns = 'http://www.w3.org/2000/svg', svg = document.createElementNS(ns, 'svg');
@@ -262,6 +264,7 @@ function heroReceipt(box){ if (!box || box.querySelector('.heroCheck')) return; 
   const meta = heroEl('p', 'heroMeta', 'Signed in ' + secs + 's \u00b7 ' + n + (n === 1 ? ' spot' : ' spots') + ' \u00b7 Stayed on your device');
   const h = box.querySelector('h1'); box.insertBefore(meta, h ? h.nextSibling : svg.nextSibling);
   const pg = document.querySelector('#pages .pg'); if (pg) { const th = heroEl('div', 'heroThumb'), cl = pg.cloneNode(true);
+    const canvases = pg.querySelectorAll('canvas'); cl.querySelectorAll('canvas').forEach((c, i) => c.getContext('2d').drawImage(canvases[i], 0, 0));
     cl.querySelectorAll('[id]').forEach(x => x.removeAttribute('id')); th.setAttribute('aria-hidden', 'true'); th.appendChild(cl); box.insertBefore(th, meta.nextSibling); } }
 heroInit();
 /* hero:end */
@@ -295,7 +298,7 @@ const pad = $('pad'), ctx = pad.getContext('2d'); let pts = [], strokes = [], ac
 function sizePad(){ const r = pad.getBoundingClientRect(); if (!r.width || !r.height) return; const d = Math.min(window.devicePixelRatio || 1, 3);
   const w = Math.round(r.width * d), h = Math.round(r.height * d); if (w === pad.width && h === pad.height && d === lastD) return;
   lastD = d; pad.width = w; pad.height = h; ctx.setTransform(d,0,0,d,0,0); redraw(); }
-function redraw(){ const r = pad.getBoundingClientRect(), W = r.width, Hh = r.height; ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,pad.width,pad.height); ctx.restore();
+function redraw(){ CAPTURED_SIG = null; const r = pad.getBoundingClientRect(), W = r.width, Hh = r.height; ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,pad.width,pad.height); ctx.restore();
   $('padPh').classList.toggle('hidden', strokes.length > 0);
   ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#0b1a4a';
   for (const s of strokes) for (let i = 0; i < s.length; i++) { const a = s[Math.max(0,i-1)], p = s[i];
@@ -313,11 +316,11 @@ pad.addEventListener('contextmenu', e => e.preventDefault());
 if (window.ResizeObserver) new ResizeObserver(sizePad).observe(pad); else window.addEventListener('resize', sizePad);
 window.addEventListener('orientationchange', () => setTimeout(sizePad, 200));
 $('clear').onclick = () => { strokes = []; drawn = false; redraw(); upd(); };
-function setMode(m){ mode = m; $('tabDraw').setAttribute('aria-selected', m==='draw'); $('tabType').setAttribute('aria-selected', m==='type');
+function setMode(m){ CAPTURED_SIG = null; mode = m; $('tabDraw').setAttribute('aria-selected', m==='draw'); $('tabType').setAttribute('aria-selected', m==='type');
   $('drawPanel').classList.toggle('hidden', m!=='draw'); $('typePanel').classList.toggle('hidden', m!=='type'); if (m==='draw') sizePad(); upd(); }
 $('tabDraw').onclick = () => setMode('draw'); $('tabType').onclick = () => setMode('type');
 function updTyped(){ $('typedPreview').textContent = $('typed').value; }
-$('typed').oninput = () => { updTyped(); if (!$('name').dataset.touched) $('name').value = $('typed').value; upd(); };
+$('typed').oninput = () => { CAPTURED_SIG = null; updTyped(); if (!$('name').dataset.touched) $('name').value = $('typed').value; upd(); };
 $('name').oninput = () => { $('name').dataset.touched = 1; };
 $('consent').onchange = () => upd();
 $('applyAll').onchange = () => upd();
@@ -328,18 +331,49 @@ function goToPad(){ if (heroOpen()) return; const t = mode === 'draw' ? pad : $(
 function has(){ return mode==='draw' ? drawn : $('typed').value.trim().length > 0; }
 function upd(){ sbText(); $('submit').disabled = !(has() && $('consent').checked && (SPOTS < 2 || $('applyAll').checked)); }
 
-// signature image, kept small (max 600x200) so the reply code stays short
-// CAPTURED_SIG: hero flow closes the sheet before submit; pad then has a 0x0 layout box on
-// mobile Safari/Chrome, so we capture PNG while the pad is still visible and fall back to
-// the canvas backing store when getBoundingClientRect is empty (real ChatGPT phone bug).
-let CAPTURED_SIG = null;
-function emptyDataUrl(u){ return !u || u === 'data:,' || /data:,$/.test(u) || u.length < 64; }
+// signature-capture:start (shared across all three signing pages)
+var CAPTURED_SIG = null;
+function emptyDataUrl(u){ return typeof u !== 'string' || !/^data:image\/png;base64,[A-Za-z0-9+/]+=*$/.test(u) || u.length < 64; }
+function canvasHasInk(c){
+  if (![c.width, c.height].every(n => Number.isFinite(n) && n > 0) || c.width*c.height > 16000000) return false;
+  const a = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+  for (let i=0; i<a.length; i+=4) if ((255 - Math.min(a[i],a[i+1],a[i+2])) * a[i+3] > 127) return true;
+  return false;
+}
+async function validSignature(u){
+  if (emptyDataUrl(u)) return false;
+  try { const im = new Image(); im.src = u; await im.decode();
+    if (!im.naturalWidth || !im.naturalHeight || im.naturalWidth*im.naturalHeight > 16000000) return false;
+    const c = document.createElement('canvas'); c.width=im.naturalWidth; c.height=im.naturalHeight;
+    c.getContext('2d').drawImage(im,0,0); return canvasHasInk(c);
+  } catch (_) { return false; }
+}
+function signatureRetry(){
+  CAPTURED_SIG = null; HERO.go = false; heroOpen();
+  $('msg').className = 'err'; $('msg').textContent = 'Could not capture your signature. Please try again. Your strokes are still here.';
+  upd();
+}
+async function heroCaptureSignature(){
+  try {
+    const saved = typeof savedSel !== 'undefined' && savedSel && document.querySelector('.saved.sel img');
+    CAPTURED_SIG = saved ? saved.src : sigPng();
+  } catch (_) { CAPTURED_SIG = null; }
+  if (!await validSignature(CAPTURED_SIG)) { signatureRetry(); return false; }
+  return true;
+}
+async function capturedSignature(){
+  let png = CAPTURED_SIG; CAPTURED_SIG = null;
+  if (!png) { try { png = sigPng(); } catch (_) {} }
+  if (!await validSignature(png)) { signatureRetry(); return null; }
+  return png;
+}
 function sigPng(){ let src, sw, sh, sx = 0, sy = 0;
   if (mode === 'type') { const c = document.createElement('canvas'); c.width = 900; c.height = 300; const x = c.getContext('2d');
     const t = $('typed').value.trim(); let fs = 150; x.fillStyle = '#0b1a4a';
     do { x.font = fs + 'px "Segoe Script","Brush Script MT","Snell Roundhand",cursive'; fs -= 6; } while (x.measureText(t).width > 860 && fs > 30);
     x.textBaseline = 'middle'; x.fillText(t, 20, 150); src = c; sw = 900; sh = 300; }
-  else { const all = strokes.flat(); if (!all.length) return 'data:,';
+  else { const all = strokes.flat();
+    if (!pad.width || !pad.height || !all.length || !all.every(p => Number.isFinite(p.x) && Number.isFinite(p.y))) return 'data:,';
     let r = pad.getBoundingClientRect();
     let cssW = r.width, cssH = r.height;
     // After heroClose the pad is display:none → 0x0. Use DPR-backed CSS size instead.
@@ -357,6 +391,7 @@ function sigPng(){ let src, sw, sh, sx = 0, sy = 0;
   const s = Math.min(1, 600 / sw, 200 / sh), c = document.createElement('canvas');
   c.width = Math.max(1, Math.round(sw*s)); c.height = Math.max(1, Math.round(sh*s));
   const cx = c.getContext('2d'); cx.drawImage(src, sx, sy, sw, sh, 0, 0, c.width, c.height);
+  if (!canvasHasInk(c)) return 'data:,';
   // one ink colour + 4 alpha levels: looks the same, compresses ~5x better (shorter reply code)
   try { const im = cx.getImageData(0, 0, c.width, c.height), a = im.data;
     for (let i = 0; i < a.length; i += 4) { a[i] = 11; a[i+1] = 26; a[i+2] = 74; a[i+3] = Math.round(a[i+3] / 85) * 85; }
@@ -364,6 +399,8 @@ function sigPng(){ let src, sw, sh, sx = 0, sy = 0;
   const out = c.toDataURL('image/png');
   return emptyDataUrl(out) ? 'data:,' : out; }
 
+
+// signature-capture:end
 
 // ---- sealed link: fragment, relay, AES-GCM ----
 // sealed file: the params are embedded in the page (window.GOTOQUILL_SEALED) instead of the URL fragment
@@ -516,18 +553,12 @@ async function finish(resp){ resp.type = 'gotoquill-response'; resp.version = 1;
   if (resp.decision === 'decline') { $('doneTitle').textContent = 'Declined. you can close this page'; $('doneText').textContent = 'Your assistant was told.'; }
   else { $('done').classList.add('signed'); $('doneTitle').textContent = 'Signed ✓'; $('doneText').classList.add('hidden'); backToChat($('done'), D.return_to, D.document_name); }
   window.scrollTo(0, 0); }
-$('submit').onclick = () => { if (!has() || !$('consent').checked || (SPOTS > 1 && !$('applyAll').checked)) return; $('submit').disabled = true;
+$('submit').onclick = async () => { if (!has() || !$('consent').checked || (SPOTS > 1 && !$('applyAll').checked)) return; $('submit').disabled = true;
   const typed = mode === 'type' ? $('typed').value.trim() : '';
-  let png = CAPTURED_SIG; CAPTURED_SIG = null;
-  if (emptyDataUrl(png)) { try { png = sigPng(); } catch (_) { png = 'data:,'; } }
-  if (emptyDataUrl(png)) {
-    $('msg').className = 'err';
-    $('msg').textContent = 'Could not capture your signature. Try Type, or redraw and sign again.';
-    upd(); return;
-  }
+  const png = await capturedSignature(); if (!png) return;
   finish({decision:'sign', signer_timezone: (()=>{try{return Intl.DateTimeFormat().resolvedOptions().timeZone||''}catch(_){return ''}})(), signer_utc_offset: -new Date().getTimezoneOffset(), signer_locale: (navigator.languages&&navigator.languages[0])||navigator.language||'', signature_png: png, method: mode==='draw' ? 'drawn' : 'typed', typed_name: typed,
           signer_name: $('name').value.trim(), consent: true, signed_by_line: sbChecked(), consent_text: D.consent_text})
-    .catch(e => { $('msg').className = 'err'; $('msg').textContent = isNet(e) ? 'Could not send. Check your connection and tap Sign again. If this is a chat preview, open this file in your browser: tap Download, then open it in Chrome/Safari.' : 'Could not send. Check your connection and tap Sign again. (' + e + ')'; upd(); }); };
+    .catch(e => { signatureRetry(); $('msg').className = 'err'; $('msg').textContent = isNet(e) ? 'Could not send. Check your connection and tap Sign again. If this is a chat preview, open this file in your browser: tap Download, then open it in Chrome/Safari.' : 'Could not send. Check your connection and tap Sign again. (' + e + ')'; upd(); }); };
 $('decline').onclick = () => { let r = ''; try { r = prompt('Decline this request? Optional reason:', ''); } catch (_) {} if (r === null) return;
   finish({decision:'decline', decline_reason: r || ''}).catch(e => { $('msg').className = 'err'; $('msg').textContent = 'Could not send: ' + e; }); };
 

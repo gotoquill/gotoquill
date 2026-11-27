@@ -31,23 +31,24 @@ def test_phone_send_back(env, pdf_file, tmp_path, share):
         else: ctx.add_init_script("delete Navigator.prototype.canShare; delete Navigator.prototype.share;")
         pg = ctx.new_page(); errs = []; pg.on("pageerror", lambda e: errs.append(e))
         _sign(pg, "file://" + r["html_path"])
-        assert pg.is_visible("#copy") and "Copy response" in (pg.text_content("#copy") or "")
-        assert pg.is_visible("#send") and "Share" in (pg.text_content("#send") or "")
-        assert "paste" in (pg.text_content("#sendHint") or "").lower()
+        assert pg.is_visible("#download") and pg.is_visible("#downloadPdf")
+        assert pg.is_visible("#send") and pg.is_visible("#sharePdf")
+        assert "attach" in (pg.text_content("#sendHint") or "").lower()
+        assert not pg.is_visible("#code") and not pg.is_visible("#copy")
         code = pg.input_value("#code"); assert code.startswith("GOTOQUILL1")
         if share:
-            if shots: pg.screenshot(path=os.path.join(shots, "file-mode-05-after-sign.png"))
-            pg.click("#send"); pg.wait_for_function("() => window.__shared && (window.__shared.t || window.__shared.text || window.__shared.n)")
+            pg.click("#send")
+            pg.wait_for_function("() => window.__shared && window.__shared.t")
             shared = pg.evaluate("window.__shared")
-            assert shared.get("n") or (shared.get("text") or "").startswith("GOTOQUILL1")
+            assert shared["n"] == "Contract signature.gotoquill"
+            assert json.loads(shared["t"])["browser_pdf_sha256"]
         else:
-            pg.click("#copy")
-            pg.wait_for_function("() => (document.getElementById('doneMsg')||{}).textContent")
-            msg = pg.text_content("#doneMsg") or ""
-            assert "Copied" in msg or "paste" in msg.lower() or "Select" in msg or "Long-press" in msg or "copy" in msg.lower()
-            if shots: pg.screenshot(path=os.path.join(shots, "file-mode-06-after-sign-no-share.png"))
-            pg.click("#trouble summary"); assert pg.is_visible("#download")
-            if shots: pg.screenshot(path=os.path.join(shots, "file-mode-07-having-trouble.png"), full_page=True)
+            with pg.expect_download() as downloaded:
+                pg.click("#send")
+            assert downloaded.value.suggested_filename == "Contract signature.gotoquill"
+            pg.click("#trouble summary")
+            assert pg.is_visible("#copy") and pg.is_visible("#code")
+        if shots: pg.screenshot(path=os.path.join(shots, "file-mode-after-sign.png"))
         assert not errs; b.close()
     out = tools.apply_signature_response(r["request_id"], response_text=code)
     assert out["status"] == "completed"
