@@ -159,6 +159,8 @@ body.hero .pg canvas{border:0;border-radius:10px;margin:0;background:#fff}
       </div>
       <label for="name" style="display:block;margin-top:12px">Full name (printed in the proof record)</label>
       <input id="name" type="text" autocomplete="name" maxlength="200">
+      <label class="consent" for="americanDate"><input type="checkbox" id="americanDate"><span id="americanDateText">Use American date format (MM/DD/YYYY)</span></label>
+      <p id="datePreview" class="mut" aria-live="polite"></p>
       <label class="consent signedBy" for="signedBy"><input type="checkbox" id="signedBy"><span id="signedByText">Add “Signed by {name} · {date}” under my signature</span></label>
       <label class="consent" for="consent"><input type="checkbox" id="consent"><span id="consentText"></span></label>
       <div id="multi" class="hidden" role="note"><p id="multiNote"></p>
@@ -226,7 +228,7 @@ function backToChat(box, rt, docName, opts){ opts = opts || {};
   if (typeof heroReceipt === 'function') heroReceipt(box);
   box.appendChild(wrap); return {url, text}; }
 /* back-to-chat:end */
-/* hero:start (same block in web/sign.js, static/sign.html, static/offline.html; tests check they match) */
+/* hero:start (local templates share this block; hosted date controls are separate) */
 // Document-first layout: full-width pages, top bar with progress, sticky "Review & sign", signing in a bottom sheet
 // (<dialog showModal> top-layer). Also runs inside sandboxed iframes (Muse / in-app WebViews).
 const HERO = {on: false, t0: Date.now(), t1: 0, spots: 0, done: 0, go: false, arm: false,
@@ -271,17 +273,12 @@ function heroInit(){ const app = heroId('app'), card = heroId('signCard'), pages
   heroSpots(0); }
 // sbdate:start -- mirrors pdf.default_date_format / to_strftime / strftime so the label shows exactly what gets stamped
 const SB_TOK = [['YYYY','%Y'],['MMMM','%B'],['MMM','%b'],['MM','%m'],['DD','%d'],['YY','%y'],['HH','%H'],['mm','%M']];
-const SB_ISO = ['sv','ja','zh','ko','lt','hu','fr-ca','en-ca'];
 const SB_MON = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 var SB_BOXES = null;  // set by pages whose data is not in D
 const SB_DAY = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 function sbLocale(){ try { return (navigator.languages&&navigator.languages[0])||navigator.language||''; } catch (_) { return ''; } }
 function sbDefFmt(locale){ const l = String(locale || '').toLowerCase().replace(/_/g, '-');
-  if (!l) return '%d %b %Y';
-  if (l === 'en-us' || l === 'en-ph' || l === 'en' || l.startsWith('en-us')) return '%m/%d/%Y';
-  if (SB_ISO.some(x => l === x || l.startsWith(x + '-'))) return '%Y-%m-%d';
-  if (['de','ru','pl','fi','cs','tr','uk','nb','da'].some(x => l.startsWith(x))) return '%d.%m.%Y';
-  return '%d/%m/%Y'; }
+  return l === 'en-us' || l.startsWith('en-us-') ? '%m/%d/%Y' : '%d/%m/%Y'; }
 function sbStrf(fmt, locale){ if (!fmt || fmt === 'auto' || fmt === 'locale') return sbDefFmt(locale);
   fmt = String(fmt); if (fmt.indexOf('%') >= 0) return fmt;
   let out = '', i = 0;
@@ -308,13 +305,38 @@ function sbDate(d, strf, zoneName){
     return value;
   });
 }
-function sbFmt(){ let f = null; try { const b = (typeof D !== 'undefined' && D && D.boxes) || SB_BOXES || [];
-    const s = b.find(x => x.kind !== 'date' && x.date_format); if (s) f = s.date_format; } catch (_) {}
-  return sbStrf(f, sbLocale()); }
+var SB_CHOICE = null, SB_DATE = null;
+const SB_FORMATS = {'DD/MM/YYYY':'%d/%m/%Y','MM/DD/YYYY':'%m/%d/%Y','YYYY-MM-DD':'%Y-%m-%d'};
+function sbValidFormat(fmt){ return Object.prototype.hasOwnProperty.call(SB_FORMATS, fmt); }
+function sbFmt(){ if (SB_CHOICE) return SB_FORMATS[SB_CHOICE];
+  let f = null; try { const b = (typeof D !== 'undefined' && D && D.boxes) || SB_BOXES || [];
+    const s = b.find(x => x.date_format); if (s) f = s.date_format; } catch (_) {}
+  return sbValidFormat(f) ? SB_FORMATS[f] : (Object.values(SB_FORMATS).includes(f) ? f : sbDefFmt(sbLocale())); }
+function sbLocalHost(){ return ['127.0.0.1','localhost','[::1]'].includes(location.hostname); }
+function sbRemember(fmt){
+  try { localStorage.setItem('gotoquill.dateFormat', fmt); } catch (_) {}
+  // Local requests use different ports. A format-only loopback cookie bridges those origins.
+  try { if (sbLocalHost()) document.cookie = 'gotoquill_date_format='+encodeURIComponent(fmt)+'; Path=/; Max-Age=31536000; SameSite=Strict'; } catch (_) {}
+}
+function sbInit(){
+  const c = document.getElementById('americanDate'); if (!c) return;
+  let remembered; try { remembered = localStorage.getItem('gotoquill.dateFormat'); } catch (_) {}
+  try { if (sbLocalHost()) { const entry=document.cookie.split('; ').find(c=>c.startsWith('gotoquill_date_format=')); if(entry) { const value=decodeURIComponent(entry.split('=')[1]); if(sbValidFormat(value))remembered=value; } } } catch (_) {}
+  SB_CHOICE = sbValidFormat(remembered) ? remembered : Object.keys(SB_FORMATS).find(k => SB_FORMATS[k] === sbFmt());
+  c.checked = SB_CHOICE === 'MM/DD/YYYY';
+  const he = /^he(?:-|$)/i.test(sbLocale());
+  document.getElementById('americanDateText').textContent = he ? 'שימוש בתבנית תאריך אמריקאית (MM/DD/YYYY)' : 'Use American date format (MM/DD/YYYY)';
+  c.onchange = () => { SB_CHOICE = c.checked ? 'MM/DD/YYYY' : 'DD/MM/YYYY';
+    sbRemember(SB_CHOICE); sbText(); };
+  sbText();
+}
+function sbChoice(){ return {date_format: SB_CHOICE || Object.keys(SB_FORMATS).find(k => SB_FORMATS[k] === sbFmt()), date_text: SB_DATE || sbDate(new Date(), sbFmt())}; }
 // sbdate:end
 { const n = document.getElementById('name'); if (n) n.addEventListener('input', sbText); sbText(); }
 function sbText(){ const s = document.getElementById('signedByText'); if (!s) return; const n = document.getElementById('name');
-  const dt = sbDate(new Date(), sbFmt());
+  const dt = sbDate(new Date(), sbFmt()); SB_DATE = dt;
+  const preview = document.getElementById('datePreview'); if (preview) preview.textContent = (/^he(?:-|$)/i.test(sbLocale()) ? 'תאריך: ' : 'Date: ') + dt;
+  document.querySelectorAll('#pages .dateBox').forEach(b => { b.textContent = dt; });
   const nm = (n && n.value.trim()) || 'your name';
   s.textContent = 'Add \u201cSigned by ' + nm + ' \u00b7 ' + dt + '\u201d under my signature'; }
 function sbChecked(){ const c = document.getElementById('signedBy'); return !!(c && c.checked); }
@@ -507,7 +529,7 @@ var SPOTS = 0;  // signature spots (not date fields); >1 needs the extra "apply 
 function goToPad(){ if (heroOpen()) return; const t = mode === 'draw' ? pad : $('typed'); const card = $('signCard');
   try { card.scrollIntoView({behavior: 'smooth', block: 'center'}); } catch (_) { card.scrollIntoView(); }
   setTimeout(() => { try { t.focus({preventScroll: true}); } catch (_) { t.focus(); } }, 350); }
-function setSpots(boxes){ SPOTS = (boxes || []).filter(b => b.kind !== 'date').length; heroSpots(SPOTS);
+function setSpots(boxes){ SB_BOXES = boxes || []; sbInit(); SPOTS = (boxes || []).filter(b => b.kind !== 'date').length; heroSpots(SPOTS);
   if (SPOTS > 1) { $('multi').classList.remove('hidden');
     $('multiNote').textContent = 'This document has ' + SPOTS + ' signature spots. Your one signature will be placed on each of them.';
     $('applyAllText').textContent = 'I agree this signature will be applied to all ' + SPOTS + ' signature spots in this document'; } }
@@ -551,6 +573,15 @@ async function capturedSignature(){
   if (!await validSignature(png)) { signatureRetry(); return null; }
   return png;
 }
+function trimCanvas(source){
+  const w=source.width,h=source.height,a=source.getContext('2d').getImageData(0,0,w,h).data;
+  let left=w,top=h,right=-1,bottom=-1;
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++)if(a[(y*w+x)*4+3]){
+    left=Math.min(left,x);right=Math.max(right,x);top=Math.min(top,y);bottom=Math.max(bottom,y); }
+  if(right<left)return source;
+  const c=document.createElement('canvas');c.width=right-left+1;c.height=bottom-top+1;
+  c.getContext('2d').drawImage(source,left,top,c.width,c.height,0,0,c.width,c.height);return c;
+}
 function sigPng(){ let src, sw, sh, sx = 0, sy = 0;
   if (mode === 'type') { const c = document.createElement('canvas'); c.width = 900; c.height = 300; const x = c.getContext('2d');
     const t = $('typed').value.trim(); let fs = 150; x.fillStyle = '#0b1a4a';
@@ -580,7 +611,7 @@ function sigPng(){ let src, sw, sh, sx = 0, sy = 0;
   try { const im = cx.getImageData(0, 0, c.width, c.height), a = im.data;
     for (let i = 0; i < a.length; i += 4) { a[i] = 11; a[i+1] = 26; a[i+2] = 74; a[i+3] = Math.round(a[i+3] / 85) * 85; }
     cx.putImageData(im, 0, 0); } catch (_) {}
-  const out = c.toDataURL('image/png');
+  const out = trimCanvas(c).toDataURL('image/png');
   return emptyDataUrl(out) ? 'data:,' : out; }
 
 
@@ -615,7 +646,7 @@ async function finish(resp){ resp.type = 'gotoquill-response'; resp.version = 1;
 $('submit').onclick = async () => { if (!has() || !$('consent').checked || (SPOTS > 1 && !$('applyAll').checked)) return; $('submit').disabled = true;
   const typed = mode === 'type' ? $('typed').value.trim() : '';
   const png = await capturedSignature(); if (!png) return;
-  finish({decision:'sign', signer_timezone: (()=>{try{return Intl.DateTimeFormat().resolvedOptions().timeZone||''}catch(_){return ''}})(), signer_utc_offset: -new Date().getTimezoneOffset(), signer_locale: (navigator.languages&&navigator.languages[0])||navigator.language||'', signature_png: png, method: mode==='draw' ? 'drawn' : 'typed', typed_name: typed,
+  finish({decision:'sign', ...sbChoice(), signer_timezone: (()=>{try{return Intl.DateTimeFormat().resolvedOptions().timeZone||''}catch(_){return ''}})(), signer_utc_offset: -new Date().getTimezoneOffset(), signer_locale: (navigator.languages&&navigator.languages[0])||navigator.language||'', signature_png: png, method: mode==='draw' ? 'drawn' : 'typed', typed_name: typed,
           signer_name: $('name').value.trim(), consent: true, signed_by_line: sbChecked(), consent_text: D.consent_text})
     .catch(() => { signatureRetry(); }); };
 $('decline').onclick = () => { let r = ''; try { r = prompt('Decline this request? Optional reason:', ''); } catch (_) {} if (r === null) return;
@@ -672,10 +703,10 @@ async function renderDocument(){
     await page.render({canvasContext:canvas.getContext('2d'), viewport}).promise;
     canvas.dataset.rendered='true';
     (D.boxes||[]).filter(b=>b.page===i+1).forEach(b=>{
-      const x=document.createElement(b.kind==='date'?'div':'button'); x.className='box';
+      const x=document.createElement(b.kind==='date'?'div':'button'); x.className=b.kind==='date'?'box dateBox':'box';
       if(b.kind!=='date'){x.type='button';x.setAttribute('aria-label','Sign here: go to the signature pad');x.onclick = goToPad;}
       x.style.left=b.left*100+'%';x.style.top=b.top*100+'%';x.style.width=b.width*100+'%';x.style.height=b.height*100+'%';
-      x.textContent=b.kind==='date'?'Date':b.kind==='initials'?'Initials':'Sign here';wrap.appendChild(x);
+      x.textContent=b.kind==='date'?sbChoice().date_text:b.kind==='initials'?'Initials':'Sign here';wrap.appendChild(x);
     });
     heroFitChips();
   }
@@ -713,7 +744,10 @@ function removePlannedWidgets(doc, plan, lib){
 
 async function stampBrowser(resp){
   const lib=await pdfLibReady, doc=await lib.PDFDocument.load(b64ToBytes(D.pdf_base64), {updateMetadata:false});
-  const font=await doc.embedFont(lib.StandardFonts.Helvetica), png=await doc.embedPng(resp.signature_png);
+  const image=new Image(); image.src=resp.signature_png; await image.decode();
+  const canvas=document.createElement('canvas'); canvas.width=image.width; canvas.height=image.height;
+  canvas.getContext('2d').drawImage(image,0,0);
+  const font=await doc.embedFont(lib.StandardFonts.Helvetica), png=await doc.embedPng(trimCanvas(canvas).toDataURL('image/png'));
   const pages=doc.getPages(), plan=D.stamp_plan, date=new Date(resp.client_timestamp);
   removePlannedWidgets(doc,plan,lib);
   for(const op of plan.operations){
@@ -726,14 +760,14 @@ async function stampBrowser(resp){
     const off=resp.signer_utc_offset;
     const offsetName=off===0?'UTC':'UTC'+(off>=0?'+':'-')+String(Math.floor(Math.abs(off)/60)).padStart(2,'0')+':'+String(Math.abs(off)%60).padStart(2,'0');
     const zoneName=(plan.zone_names[resp.signer_timezone]||{})[String(off)]||offsetName;
-    let text=sbDate(date,sbStrf(op.date_format,resp.signer_locale),zoneName);
+    let text=resp.date_text || sbDate(date,SB_FORMATS[op.date_format] || sbDefFmt(resp.signer_locale),zoneName);
     if(op.kind==='signed_by'){
       const name=Array.from((resp.signer_name||resp.typed_name||D.signer_name||'').trim().replace(/\s+/g,' ')).slice(0,80).join('');
       text=(name?'Signed by '+name:'Signed')+' · '+text;
     }
     if(op.kind==='proof'){
       const off=resp.signer_utc_offset, zone=resp.signer_timezone||('UTC'+(off>=0?'+':'-')+String(Math.floor(Math.abs(off)/60)).padStart(2,'0')+':'+String(Math.abs(off)%60).padStart(2,'0'));
-      text='Signed '+text+' ('+zone+')';
+      text='Signed '+text+', '+sbDate(date,'%H:%M')+' ('+zone+')';
     }
     // Standard PDF Helvetica has the same WinAnsi repertoire in both stamp engines.
     text=Array.from(text,c=>{try{font.encodeText(c);return c;}catch(_){return '?';}}).join('');

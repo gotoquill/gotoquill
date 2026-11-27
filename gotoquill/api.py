@@ -28,6 +28,8 @@ class SubmitBody(BaseModel):
     signer_timezone: str | None = None
     signer_utc_offset: int | None = None
     signer_locale: str | None = None
+    date_format: Literal["DD/MM/YYYY", "MM/DD/YYYY", "YYYY-MM-DD"] | None = None
+    date_text: str | None = None
     signed_by_line: bool = False
 
 
@@ -128,7 +130,7 @@ def create_app(on_submit: Callable[[str, str], None] | None = None, extra_hosts:
     @app.post("/s/{token}/submit")
     def submit(token: str, body: SubmitBody, request: Request):
         try:
-            r = get_service().submit(token, **body.model_dump(), ip=request.client.host if request.client else None,
+            r = get_service().submit(token, **body.model_dump(), include_pdf=True, ip=request.client.host if request.client else None,
                                      user_agent=request.headers.get("user-agent"))
         except SignError as e:
             return _err(e)

@@ -21,7 +21,7 @@ def test_list_without_request(two_roles, monkeypatch, capsys):
     factory = Mock(side_effect=AssertionError('must not create request'))
     monkeypatch.setattr(offline, 'create_file_request', factory)
     cli.main(['sign', str(two_roles), '--list-spots', '--file-mode'])
-    assert capsys.readouterr().out.splitlines() == ['1. Page 1: ClientSignature', '2. Page 1: WitnessSignature']
+    assert capsys.readouterr().out.splitlines() == ['1. Page 1: unknown   ClientSignature', '2. Page 1: unknown   WitnessSignature']
     factory.assert_not_called()
 
 

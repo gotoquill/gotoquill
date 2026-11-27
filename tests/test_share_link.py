@@ -48,7 +48,7 @@ def test_share_link_flow(env, pdf_file, fake_tunnel):
     local = r["local_url"]
     assert _via_tunnel(local).status_code == 200
     assert httpx.get(local, headers={"Host": "evil.trycloudflare.com"}).status_code == 403
-    assert _via_tunnel(local, "/submit", "post", json=sign_body()).json() == {"status": "signed"}
+    assert _via_tunnel(local, "/submit", "post", json=sign_body()).json()["status"] == "signed"
     res = env.wait(r["request_id"], 10)
     assert res["status"] == "completed"
     assert res["audit"]["delivery"] == "share link via tunnel"

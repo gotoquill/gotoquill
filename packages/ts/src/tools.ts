@@ -4,7 +4,7 @@ import { existsSync } from "node:fs";
 import { SignError, errResult } from "./errors.js";
 import { cancel, createSealedRequest, isSealed, sealedStatus, applyResponseObj } from "./sealed.js";
 import { load, exists as stateExists } from "./store.js";
-import type { Placement } from "./pdf.js";
+import type { DateFormat, Placement } from "./pdf.js";
 
 export type RequestArgs = {
   pdf_path?: string;
@@ -15,6 +15,7 @@ export type RequestArgs = {
   document_name?: string;
   placements?: Placement[];
   add_date?: boolean;
+  date_format?: DateFormat;
   message?: string;
   expires_in_minutes?: number;
   delivery?: string;
@@ -62,6 +63,7 @@ export async function requestSignature(args: RequestArgs): Promise<Record<string
   const pdf = await materializePdf(args);
   const r = await createSealedRequest({
     pdfPath: pdf.path,
+    dateFormat: args.date_format,
     pdfBytes: pdf.bytes,
     documentName: pdf.name,
     signerName: args.signer_name,

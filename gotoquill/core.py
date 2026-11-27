@@ -108,6 +108,8 @@ class Service:
                           delivery: str | None = None, spots=None, return_to: str | None = None) -> dict:
         from .returnto import normalize as _rt
         return_to = _rt(return_to)
+        if date_format is not None and date_format not in pdf.DATE_FORMATS:
+            raise SignError("date_format must be DD/MM/YYYY, MM/DD/YYYY or YYYY-MM-DD")
         data = self._read_pdf(pdf_base64, pdf_path)
         info = pdf.inspect_pdf(data, self.s.max_pages)
         from . import placement as _pl
@@ -179,16 +181,19 @@ class Service:
         if d["status"] not in ("signed", "completed"):
             raise SignError(f"cannot apply: status is '{d['status']}'", 409)
         signed_p = self._doc_path(rid, "signed.pdf")
-        if not signed_p.exists():
+        needs_stamp = not signed_p.exists()
+        if needs_stamp:
             original = self._doc_path(rid, "pdf").read_bytes()
             sig = self._doc_path(rid, "sig.png").read_bytes()
             out = pdf.stamp(original, d["placements"], sig, _parse(d["audit"]["signed_at"]),
                             d["audit"].get("signer_name"), rid,
                             {"timezone": d["audit"].get("signer_timezone"), "locale": d["audit"].get("signer_locale"),
-                             "utc_offset_minutes": d["audit"].get("signer_utc_offset_minutes")},
+                             "utc_offset_minutes": d["audit"].get("signer_utc_offset_minutes"),
+                             "date_format": d["audit"].get("date_format"), "date_text": d["audit"].get("date_text")},
                             signed_by_line=bool(d["audit"].get("signed_by_line")))
             signed_p.write_bytes(out)
-            d["audit"]["signed_sha256"] = pdf.sha256(out)
+        if needs_stamp or d["status"] == "signed":
+            d["audit"]["signed_sha256"] = pdf.sha256(signed_p.read_bytes())
             d["audit"]["applied_at"] = _iso(pdf.utcnow())
             d["status"] = "completed"
             self._save(d)
@@ -251,7 +256,8 @@ class Service:
                decline_reason: str | None = None, use_saved: str | None = None, save_as: str | None = None,
                vault_nonce: str | None = None, ip: str | None = None, user_agent: str | None = None,
                signer_timezone: str | None = None, signer_utc_offset: int | None = None,
-               signer_locale: str | None = None, signed_by_line: bool = False) -> dict:
+               signer_locale: str | None = None, signed_by_line: bool = False,
+               date_format: str | None = None, date_text: str | None = None, include_pdf: bool = False) -> dict:
         with _lock:
             d = self._by_sign_token(token)
             if d["status"] != "pending":
@@ -267,6 +273,10 @@ class Service:
                 raise SignError("decision must be 'sign' or 'decline'")
             if not consent:
                 raise SignError("consent is required to sign")
+            try:
+                date_choice = pdf.validate_date_choice(date_format, date_text)
+            except pdf.PdfError as e:
+                raise SignError(str(e)) from e
             if use_saved:
                 self._check_nonce(token, vault_nonce)
                 try:
@@ -291,7 +301,7 @@ class Service:
             d["status"] = "signed"
             d["audit"] = {
                 "request_id": d["id"], "document_name": d["document_name"], "signer_name": name,
-                **_sctx(signer_timezone, signer_utc_offset, signer_locale),
+                **_sctx(signer_timezone, signer_utc_offset, signer_locale), **date_choice,
                 "signed_at": _iso(now), "delivery": d.get("delivery"), "ip": ip, "user_agent": (user_agent or "")[:500],
                 "method": "saved" if use_saved else method,
                 "signature_source": source, "saved_signature_reused": bool(use_saved),
@@ -301,9 +311,17 @@ class Service:
                 "original_sha256": d["original_sha256"], "signature_sha256": pdf.sha256(png),
                 "signed_sha256": None,
             }
+            result = {"status": "signed"}
+            if include_pdf:
+                # Return the PDF in this response before the one-request server closes.
+                out = pdf.stamp(self._doc_path(d["id"], "pdf").read_bytes(), d["placements"], png, now, name, d["id"],
+                                {"timezone": signer_timezone, "utc_offset_minutes": signer_utc_offset,
+                                 "locale": signer_locale, **date_choice}, signed_by_line=bool(signed_by_line))
+                self._doc_path(d["id"], "signed.pdf").write_bytes(out)
+                result["signed_pdf_base64"] = base64.b64encode(out).decode()
             self._save(d)
             self._vault_nonce.pop(token, None)
-            return {"status": "signed"}
+            return result
 
     # ---------- helpers ----------
     def _read_pdf(self, b64: str | None, path: str | None) -> bytes:

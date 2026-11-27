@@ -32,6 +32,7 @@ describe("sealed memory relay", () => {
       pdfBytes: pdf,
       documentName: "mem.pdf",
       signerName: "Bob",
+      dateFormat: "DD/MM/YYYY",
       placements: [{ kind: "signature", page: 1, x: 72, y: 100, width: 200, height: 60 }],
       skipPageRasters: true,
       pageBase: "https://example.test/sign",
@@ -47,6 +48,7 @@ describe("sealed memory relay", () => {
     assert.equal(blobs.length, 1);
     const payload = JSON.parse(unseal(key, blobs[0], aad("request", q)).toString());
     const D = payload.data;
+    assert.equal(D.boxes[0].date_format, "DD/MM/YYYY");
 
     const sigSha = createHash("sha256").update(TINY_PNG).digest("hex");
     const clientTs = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
@@ -60,6 +62,8 @@ describe("sealed memory relay", () => {
       original_sha256: D.original_sha256,
       client_timestamp: clientTs,
       decision: "sign",
+      date_format: "MM/DD/YYYY",
+      date_text: "11/27/2026",
       signature_png: "data:image/png;base64," + TINY_PNG.toString("base64"),
       method,
       typed_name: "",

@@ -78,7 +78,7 @@ import pytest as _pytest
 from gotoquill import pdf as _pdf
 
 _ROOT = _Path(__file__).resolve().parents[1]
-_COPIES = [_ROOT / "web/sign.js", _ROOT / "gotoquill/static/sign.html", _ROOT / "gotoquill/static/offline.html"]
+_COPIES = [_ROOT / "gotoquill/static/sign.html", _ROOT / "gotoquill/static/offline.html"]
 
 
 def _sbdate_block(path):

@@ -1,7 +1,7 @@
 """Local stdio MCP server. Optional MCP Apps (io.modelcontextprotocol/ui) in-chat signing view."""
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 try:  # MCP Python SDK 2.x
     from mcp.server.mcpserver import Context, MCPServer as _Server
@@ -62,9 +62,9 @@ Ask the human to sign a local PDF.
         page highlights the same spots.
         add_date: date the signature. Fills the document's own date spot (a date form field, else a 'Date'/'תאריך'
         label with a ruled line near the signature; an explicit kind "date" placement wins) and, if proof_line
-        (default true), prints a small 'Signed 25 Oct 2026, 19:20 (America/New_York)' line under each signature in
-        the signer's own time zone. date_format: strftime ('%d/%m/%Y') or tokens ('DD/MM/YYYY'); default follows
-        the signer's browser locale (e.g. en-US 10/25/2026, he-IL/en-GB 25/10/2026), else '25 Oct 2026'.
+        (default true), prints a small 'Signed 25/10/2026, 19:20 (America/New_York)' line under each signature in
+        the signer's own time zone. date_format: DD/MM/YYYY, MM/DD/YYYY or YYYY-MM-DD; the signer can override it. Default follows
+        the signer's browser locale (e.g. en-US 10/25/2026, he-IL/en-GB 25/10/2026), else '25/10/2026'.
         share_link: deprecated (Cloudflare tunnel for delivery="page"); prefer the default delivery="link".
         on_complete_command: shell command run ONCE when it finishes (status JSON on stdin; env GOTOQUILL_STATUS,
         GOTOQUILL_SIGNED_PDF, GOTOQUILL_REQUEST_ID, GOTOQUILL_PREVIEW_PNG, GOTOQUILL_NEXT).
@@ -266,7 +266,7 @@ def build_server() -> Any:
                           delivery: str = "link", output_path: str | None = None,
                           document_name: str | None = None, placements: list[dict] | str | None = None,
                           add_date: bool | str = False, message: str | None = None,
-                          proof_line: bool | str = True, date_format: str | None = None,
+                          proof_line: bool | str = True, date_format: Literal["DD/MM/YYYY", "MM/DD/YYYY", "YYYY-MM-DD"] | None = None,
                           expires_in_minutes: int | str | None = None, open_browser: bool | str | None = None,
                           share_link: bool | str = False, html_path: str | None = None,
                           spots: list[int] | str | None = None, on_complete_command: str | None = None,
@@ -521,6 +521,7 @@ def build_server() -> Any:
     async def sign_pdf(pdf_path: str | None = None, signer_name: str | None = None, delivery: str = "page",
                        wait_seconds: float | str = 600, path: str | None = None, file_path: str | None = None,
                        pdf_base64: str | None = None, pdf_url: str | None = None,
+                       date_format: Literal["DD/MM/YYYY", "MM/DD/YYYY", "YYYY-MM-DD"] | None = None,
                        ctx: Context = None) -> dict:
         """EASIEST: get a PDF signed in ONE call. Opens the signing page and waits until it is signed.
         Example: sign_pdf(pdf_path="/home/me/contract.pdf")
@@ -537,7 +538,7 @@ def build_server() -> Any:
                         "Use request_signature(pdf_path=..., delivery='file') and then apply_signature_response.")
         wait = L.as_float(wait_seconds, 600) or 600
         r = await request_signature(pdf_path=pdf_path, ctx=ctx, signer_name=signer_name, delivery=delivery,
-                                    wait_seconds=0, pdf_base64=pdf_base64, pdf_url=pdf_url)
+                                    wait_seconds=0, pdf_base64=pdf_base64, pdf_url=pdf_url, date_format=date_format)
         if "error" in r:
             return r
         rid = r["request_id"]
@@ -604,14 +605,16 @@ def build_server() -> Any:
                             decline_reason: str | None = None, use_saved: str | None = None,
                             save_as: str | None = None, vault_nonce: str | None = None,
                             signer_timezone: str | None = None, signer_utc_offset: int | None = None,
-                            signer_locale: str | None = None, signed_by_line: bool = False) -> dict:
+                            signer_locale: str | None = None, signed_by_line: bool = False,
+                            date_format: Literal["DD/MM/YYYY", "MM/DD/YYYY", "YYYY-MM-DD"] | None = None,
+                            date_text: str | None = None) -> dict:
         """(In-chat view only) Submit the human's signature or decline. Saved signatures need the page's
         one-time vault_nonce, which only the human's view receives."""
         return _run(get_signer().ui_submit, sign_token, decision=decision, signature_png_base64=signature_png_base64,
                     method=method, typed_name=typed_name, signer_name=signer_name, consent=consent,
                     decline_reason=decline_reason, use_saved=use_saved, save_as=save_as, vault_nonce=vault_nonce,
                     signer_timezone=signer_timezone, signer_utc_offset=signer_utc_offset, signer_locale=signer_locale,
-                    signed_by_line=bool(signed_by_line))
+                    signed_by_line=bool(signed_by_line), date_format=date_format, date_text=date_text)
 
     @mcp.tool(annotations=TOOL_ANNOTATIONS["ui_delete_saved_signature"], meta=app_only)
     def ui_delete_saved_signature(sign_token: str, vault_nonce: str, name: str | None = None) -> dict:

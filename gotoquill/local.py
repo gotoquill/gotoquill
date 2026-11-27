@@ -208,7 +208,7 @@ class LocalSigner:
         return get_service().delete_saved(sign_token, vault_nonce, name)
 
     def ui_submit(self, sign_token: str, **body: Any) -> dict:
-        r = get_service().submit(sign_token, **body, ip="mcp-app", user_agent="MCP Apps in-chat view")
+        r = get_service().submit(sign_token, **body, include_pdf=True, ip="mcp-app", user_agent="MCP Apps in-chat view")
         self._on_submit(sign_token, r["status"])
         try:
             r = {**r, "request_id": self._rid_for(sign_token)}

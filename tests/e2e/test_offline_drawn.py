@@ -188,7 +188,7 @@ def test_failed_export_keeps_ink_and_retries(env, pdf_file, chrome, delivery):
 
 
 @pytest.mark.parametrize('rotation,date_format', [(0, 'DD/MM/YYYY'), (90, 'DD/MM/YYYY'), (270, 'DD/MM/YYYY'),
-                                                  (0, '%d %b %Y %Z %j')])
+                                                  (0, 'YYYY-MM-DD')])
 def test_crop_rotation_proof_and_role_dates(env, tmp_path, chrome, rotation, date_format):
     """Original page coordinates, crop offsets, typography and selected widgets survive both stamp engines."""
     from pdfmake import Doc

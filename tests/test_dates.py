@@ -14,7 +14,7 @@ def _stamp(data, pls, signer=None):
 
 def test_proof_line_uses_signer_timezone(sample_pdf):
     with _stamp(sample_pdf, [{"field_name": "ContractorSignature", "add_date": True}], NY) as d:
-        assert "Signed 25 Oct 2026, 19:20 (America/New_York)" in d[0].get_text()
+        assert "Signed 25/10/2026, 19:20 (America/New_York)" in d[0].get_text()
 
 
 def test_offset_fallback_and_utc_default():
@@ -24,10 +24,10 @@ def test_offset_fallback_and_utc_default():
 
 
 def test_date_formats():
-    assert pdf.to_strftime(None, None) == "%d %b %Y"
+    assert pdf.to_strftime(None, None) == "%d/%m/%Y"
     assert pdf.to_strftime(None, "en-US") == "%m/%d/%Y"
     assert pdf.to_strftime(None, "he-IL") == "%d/%m/%Y"
-    assert pdf.to_strftime(None, "sv-SE") == "%Y-%m-%d"
+    assert pdf.to_strftime(None, "sv-SE") == "%d/%m/%Y"
     assert pdf.to_strftime("DD/MM/YYYY") == "%d/%m/%Y"
     assert pdf.to_strftime("%Y.%m.%d") == "%Y.%m.%d"
 
@@ -37,11 +37,11 @@ def test_label_detection_writes_date_on_line_above_date_label(sample_pdf):
         p = d[0]
         hit = p.search_for("25/10/2026")
         label = p.search_for("Date")[-1]
-        assert len(hit) == 1 and label.x0 == 340
+        assert len(hit) == 2 and label.x0 == 340
         h = hit[0]
         assert h.x0 >= 340 and h.y1 <= 641 and h.y0 > 620  # sits on the rule at y=640, above the label
         assert not h.intersects(label)
-        proof = p.search_for("Signed 25 Oct 2026")[0]
+        proof = p.search_for("Signed 25/10/2026")[0]
         assert not proof.intersects(h) and not proof.intersects(p.search_for("Contractor signature")[0])
 
 
@@ -56,7 +56,7 @@ def test_explicit_date_placement_wins(sample_pdf):
            {"kind": "date", "page": 1, "x": 400, "y": 700, "width": 100, "height": 14, "date_format": "YYYY-MM-DD"}]
     with _stamp(sample_pdf, pls, NY) as d:
         t = d[0].get_text()
-        assert "2026-10-25" in t and "25/10/2026" not in t
+        assert "2026-10-25" in t and t.count("25/10/2026") == 1
 
 
 def test_no_date_box(tmp_path):
@@ -65,7 +65,7 @@ def test_no_date_box(tmp_path):
     data = doc.tobytes()
     with _stamp(data, [{"page": 1, "x": 72, "y": 600, "width": 180, "height": 60, "add_date": True}], NY) as d:
         t = d[0].get_text()
-        assert "Signed 25 Oct 2026, 19:20 (America/New_York)" in t and "25/10/2026" not in t
+        assert "Signed 25/10/2026, 19:20 (America/New_York)" in t and t.count("25/10/2026") == 1
 
 
 def test_date_form_field_filled_incl_hebrew():

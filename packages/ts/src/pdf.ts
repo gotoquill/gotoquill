@@ -3,9 +3,13 @@
  * Coordinates: PDF points, origin top-left (same as Python gotoquill.pdf).
  * pdf-lib uses bottom-left origin, so we convert when drawing.
  */
-import { PDFDocument, PDFPage, rgb, StandardFonts, degrees } from "pdf-lib";
+import { PDFDocument, PDFPage, rgb, StandardFonts } from "pdf-lib";
+import UPNGModule from "@pdf-lib/upng";
 import { createHash } from "node:crypto";
 import { SignError } from "./errors.js";
+
+// Handle the dependency's CommonJS default export in Node ESM and bundlers.
+const UPNG = (UPNGModule as unknown as { default: typeof UPNGModule }).default || UPNGModule;
 
 export function sha256(data: Uint8Array | Buffer): string {
   return createHash("sha256").update(data).digest("hex");
@@ -26,6 +30,8 @@ export type Placement = {
 };
 
 export type SignerCtx = {
+  date_format?: string | null;
+  date_text?: string | null;
   timezone?: string | null;
   utc_offset_minutes?: number | null;
   locale?: string | null;
@@ -56,77 +62,59 @@ export async function inspectPdf(data: Uint8Array, maxPages = 60): Promise<{
   return { page_count: n, page_sizes: sizes };
 }
 
-function defaultDateFormat(locale?: string | null): string {
-  const loc = (locale || "").toLowerCase().replace("_", "-");
-  if (!loc) return "dd MMM yyyy";
-  if (loc === "en-us" || loc === "en" || loc.startsWith("en-us")) return "MM/dd/yyyy";
-  return "dd/MM/yyyy";
-}
+export const DATE_FORMATS = ["DD/MM/YYYY", "MM/DD/YYYY", "YYYY-MM-DD"] as const;
+export type DateFormat = typeof DATE_FORMATS[number];
 
-function formatLocal(d: Date, fmt: string, locale?: string | null): string {
-  // Minimal token formatter (not full strftime).
-  const f = !fmt || fmt === "auto" || fmt === "locale" ? defaultDateFormat(locale) : fmt;
-  const pad = (n: number) => String(n).padStart(2, "0");
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  const map: Record<string, string> = {
-    YYYY: String(d.getFullYear()),
-    yyyy: String(d.getFullYear()),
-    "%Y": String(d.getFullYear()),
-    YY: String(d.getFullYear()).slice(-2),
-    MM: pad(d.getMonth() + 1),
-    "%m": pad(d.getMonth() + 1),
-    DD: pad(d.getDate()),
-    dd: pad(d.getDate()),
-    "%d": pad(d.getDate()),
-    MMM: months[d.getMonth()],
-    "%b": months[d.getMonth()],
-    HH: pad(d.getHours()),
-    "%H": pad(d.getHours()),
-    mm: pad(d.getMinutes()),
-    "%M": pad(d.getMinutes()),
-  };
-  // Prefer longer tokens first
-  let out = f;
-  for (const tok of ["YYYY", "yyyy", "%Y", "MMM", "%b", "MM", "%m", "DD", "dd", "%d", "YY", "HH", "%H", "mm", "%M"]) {
-    out = out.split(tok).join(map[tok]);
+export function signingDate(utc: Date, signer?: SignerCtx | null, requested?: string): string {
+  const fmt = signer?.date_format;
+  const text = signer?.date_text;
+  if (fmt != null || text != null) {
+    if (!DATE_FORMATS.includes(fmt as DateFormat) || typeof text !== "string" ||
+        !/^(?:[0-9]{2}\/[0-9]{2}\/[0-9]{4}|[0-9]{4}-[0-9]{2}-[0-9]{2})$/.test(text)) throw new SignError("invalid numeric signing date");
+    const parts = text.split(/[-/]/).map(Number);
+    const [year, month, day] = fmt === "YYYY-MM-DD" ? parts : [parts[2], parts[fmt === "MM/DD/YYYY" ? 0 : 1], parts[fmt === "MM/DD/YYYY" ? 1 : 0]];
+    const check = new Date(Date.UTC(year, month - 1, day));
+    if (year < 2000 || year > 2100 || check.getUTCFullYear() !== year || check.getUTCMonth() !== month - 1 || check.getUTCDate() !== day ||
+        (fmt === "YYYY-MM-DD" ? !text.includes("-") : !text.includes("/"))) throw new SignError("invalid numeric signing date");
+    return text;
   }
-  // Handle "%d %b %Y" style leftovers
-  return out;
+  const { local } = applySignerOffset(utc, signer);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const y = local.getUTCFullYear(), m = pad(local.getUTCMonth() + 1), d = pad(local.getUTCDate());
+  const locale = (signer?.locale || "").toLowerCase().replace(/_/g, "-");
+  requested = ({"%d/%m/%Y":"DD/MM/YYYY", "%m/%d/%Y":"MM/DD/YYYY", "%Y-%m-%d":"YYYY-MM-DD"} as Record<string,string>)[requested || ""] || requested;
+  const f = DATE_FORMATS.includes(requested as DateFormat) ? requested : /^en-us(?:-|$)/.test(locale) ? "MM/DD/YYYY" : "DD/MM/YYYY";
+  return f === "YYYY-MM-DD" ? `${y}-${m}-${d}` : f === "MM/DD/YYYY" ? `${m}/${d}/${y}` : `${d}/${m}/${y}`;
 }
 
 function applySignerOffset(utc: Date, signer?: SignerCtx | null): { local: Date; label: string } {
-  const off = signer?.utc_offset_minutes;
-  if (typeof off === "number" && off >= -14 * 60 && off <= 14 * 60) {
-    const local = new Date(utc.getTime() + off * 60_000);
-    const sign = off >= 0 ? "+" : "-";
-    const a = Math.abs(off);
-    const label = `UTC${sign}${String(Math.floor(a / 60)).padStart(2, "0")}:${String(a % 60).padStart(2, "0")}`;
-    return { local, label };
-  }
   if (signer?.timezone) {
     try {
-      // Use Intl for wall-clock in zone; for stamp text only.
-      const fmt = new Intl.DateTimeFormat("en-GB", {
-        timeZone: signer.timezone,
-        year: "numeric",
-        month: "short",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      });
-      // Still return a Date shifted approximately via offset parts
-      const parts = new Intl.DateTimeFormat("en-US", {
-        timeZone: signer.timezone,
-        timeZoneName: "shortOffset",
-      }).formatToParts(utc);
-      const tzName = parts.find((p) => p.type === "timeZoneName")?.value || signer.timezone;
-      return { local: utc, label: String(tzName) };
-    } catch {
-      /* fall through */
-    }
+      const parts = new Intl.DateTimeFormat("en-GB", {timeZone: signer.timezone, year:"numeric", month:"2-digit", day:"2-digit",
+        hour:"2-digit", minute:"2-digit", second:"2-digit", hourCycle:"h23"}).formatToParts(utc);
+      const n = (key: string) => Number(parts.find(p => p.type === key)!.value);
+      return {local: new Date(Date.UTC(n("year"), n("month")-1, n("day"), n("hour"), n("minute"), n("second"))), label: signer.timezone};
+    } catch { /* use the browser offset if its zone is unavailable */ }
   }
-  return { local: utc, label: "UTC" };
+  const off = signer?.utc_offset_minutes;
+  if (typeof off === "number" && Number.isInteger(off) && Math.abs(off) <= 840) {
+    const a = Math.abs(off);
+    return {local: new Date(utc.getTime()+off*60000), label:`UTC${off>=0?"+":"-"}${String(Math.floor(a/60)).padStart(2,"0")}:${String(a%60).padStart(2,"0")}`};
+  }
+  return {local: utc, label:"UTC"};
+}
+
+export function trimSignature(bytes: Uint8Array): Uint8Array {
+  const decoded = UPNG.decode(Uint8Array.from(bytes).buffer);
+  const rgba = new Uint8Array(UPNG.toRGBA8(decoded)[0]), w = decoded.width, h = decoded.height;
+  let left=w, top=h, right=-1, bottom=-1;
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++) if(rgba[(y*w+x)*4+3]) {
+    left=Math.min(left,x);right=Math.max(right,x);top=Math.min(top,y);bottom=Math.max(bottom,y);
+  }
+  if(right<left) throw new SignError("signature has no visible ink");
+  const width=right-left+1,height=bottom-top+1,out=new Uint8Array(width*height*4);
+  for(let y=0;y<height;y++) out.set(rgba.subarray(((top+y)*w+left)*4,((top+y)*w+left+width)*4),y*width*4);
+  return new Uint8Array(UPNG.encode([out.buffer],width,height,0));
 }
 
 function topLeftToPdfLib(
@@ -152,21 +140,12 @@ export async function stampPdf(opts: {
   signedByLine?: boolean;
 }): Promise<Uint8Array> {
   const doc = await PDFDocument.load(opts.pdfBytes);
-  const sigImage = await doc.embedPng(opts.signaturePng);
+  const sigImage = await doc.embedPng(trimSignature(opts.signaturePng));
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const { local, label } = applySignerOffset(opts.signedAt, opts.signer);
-  // When timezone label path used Intl without shifting Date, format via locale offset path:
-  const locale = opts.signer?.locale;
-  const dateText = formatLocal(
-    typeof opts.signer?.utc_offset_minutes === "number"
-      ? new Date(opts.signedAt.getTime() + opts.signer.utc_offset_minutes * 60_000)
-      : opts.signedAt,
-    "dd MMM yyyy",
-    locale,
-  );
-
   for (const pl of opts.placements) {
     const kind = pl.kind || "signature";
+    const dateText = signingDate(opts.signedAt, opts.signer, pl.date_format);
     const pageIndex = Math.max(0, (pl.page || 1) - 1);
     if (pageIndex >= doc.getPageCount()) throw new SignError(`page ${pl.page} out of range`);
     const page = doc.getPage(pageIndex);
@@ -177,19 +156,16 @@ export async function stampPdf(opts: {
     const box = topLeftToPdfLib(page, x, yTop, width, height);
 
     if (kind === "date") {
-      const text = formatLocal(
-        typeof opts.signer?.utc_offset_minutes === "number"
-          ? new Date(opts.signedAt.getTime() + opts.signer.utc_offset_minutes * 60_000)
-          : opts.signedAt,
-        pl.date_format || "auto",
-        locale,
-      );
+      const text = dateText;
       const fs = Math.max(6, Math.min(12, box.height * 0.75));
       page.drawText(text, { x: box.x + 1, y: box.y + 2, size: fs, font, color: rgb(0, 0, 0) });
       continue;
     }
 
-    page.drawImage(sigImage, { x: box.x, y: box.y, width: box.width, height: box.height });
+    const pad=Math.min(2,box.width/8,box.height/8);
+    const scale=Math.min((box.width-2*pad)/sigImage.width,(box.height-2*pad)/sigImage.height);
+    const iw=sigImage.width*scale,ih=sigImage.height*scale;
+    page.drawImage(sigImage, {x:box.x+(box.width-iw)/2,y:box.y+(box.height-ih)/2,width:iw,height:ih});
 
     if (opts.signedByLine) {
       const name = (opts.signerName || "").replace(/\s+/g, " ").slice(0, 80);
