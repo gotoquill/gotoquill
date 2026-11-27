@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Add root Agent Plugins manifests for the hosted Cloud MCP, supported by Cursor Marketplace, and the official logo asset.
 - Fix drawn-signature export after the signing pad closes. Capture before animation, validate visible PNG ink in the browser and Python, and preserve strokes on retry.
 - Add true-offline signed PDF download and sharing from the original PDF, using a shared Python/browser stamp plan and vendored pdf-lib and pdf.js. Replace embedded page PNGs with browser rendering and zoom.
 - Make a small `.gotoquill` receipt the primary return to chat, keep response codes as a hidden fallback, and record browser and authoritative Python PDF hashes without claiming byte identity.
