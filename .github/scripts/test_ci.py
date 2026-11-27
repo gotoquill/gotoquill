@@ -82,6 +82,15 @@ class ClassificationTests(unittest.TestCase):
         self.assertEqual(mixed['ts'], 'true')
         self.assertEqual(mixed['contracts'], 'true')
 
+    def test_additional_cross_area_consumers(self):
+        for path in ('cloud/site/icons/icon-512.png', 'cloud/cf-site/src/index.js',
+                     'docs/assets/social-preview.png', 'docs/cloud/submission/plugin-manifest.draft.json'):
+            self.assertEqual(select([path], private=True)['worker'], 'true')
+        self.assertEqual(select(['README.md'], private=True)['site'], 'true')
+        html = select(['gotoquill/static/sign.html'], private=True)
+        for area in ('python', 'worker', 'browser'):
+            self.assertEqual(html[area], 'true')
+
     def test_full_events_and_reusable_tag_caller(self):
         with tempfile.TemporaryDirectory() as directory:
             event = Path(directory, 'event.json')

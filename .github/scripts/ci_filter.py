@@ -39,6 +39,8 @@ def select(paths, *, private=False, full=False):
                 or fnmatch.fnmatchcase(name, 'requirements*.txt')
                 or path in ('tests/pdfmake.py', 'package.json')):
             all_areas()
+        elif private and path == 'docs/assets/social-preview.png':
+            selected.add('worker')
         elif private and path.startswith('cloud/worker-ts/'):
             selected.update(('worker', 'contracts'))
             contracts.update(('policy', 'cloud', 'export'))
@@ -54,7 +56,8 @@ def select(paths, *, private=False, full=False):
         elif private and (path.startswith(('cloud/site/', 'cloud/preview-site/', 'cloud/cf-site/'))
                           or path in ('scripts/test/connection-chooser.test.mjs',
                                       'scripts/sync-legal-pages.py', 'scripts/build-draft-data-handling.py')):
-            selected.update(('site', 'contracts'))
+            # Worker asset and audit regressions import the site implementation.
+            selected.update(('site', 'worker', 'contracts'))
             contracts.update(('policy', 'cloud', 'export'))
         elif private and (path.startswith('docs/cloud/') or path in (
                 'scripts/build-chatgpt-plugin-zip.mjs', 'scripts/test/build-chatgpt-plugin-zip.test.mjs')):
@@ -62,6 +65,8 @@ def select(paths, *, private=False, full=False):
             contracts.update(('policy', 'cloud', 'export'))
             if path.startswith('docs/cloud/submission/') or path.startswith('scripts/'):
                 selected.add('plugin')
+            if path.startswith('docs/cloud/submission/'):
+                selected.add('worker')
         elif path.startswith(('web/', 'schemas/')):
             selected.update(('python', 'ts'))
             if private:
@@ -69,9 +74,9 @@ def select(paths, *, private=False, full=False):
         elif path.startswith(('gotoquill/', 'tests/')) or path in (
                 '.python-version', 'pytest.ini', 'setup.cfg', 'tox.ini'):
             selected.add('python')
-            if private and path in ('gotoquill/pdf.py', 'gotoquill/pdfdoc.py',
+            if private and (path.startswith('gotoquill/static/') or path in ('gotoquill/pdf.py', 'gotoquill/pdfdoc.py',
                                     'gotoquill/placement.py', 'gotoquill/labels.py',
-                                    'gotoquill/core.py', 'gotoquill/tools.py', 'gotoquill/sealed.py'):
+                                    'gotoquill/core.py', 'gotoquill/tools.py', 'gotoquill/sealed.py')):
                 selected.update(('worker', 'browser'))
         elif path.startswith('packages/ts/'):
             selected.add('ts')
@@ -82,6 +87,8 @@ def select(paths, *, private=False, full=False):
             if private:
                 selected.add('build')
                 contracts.add('export')
+                if path == 'README.md':
+                    selected.add('site')
         elif path.startswith(('packages/', 'integrations/', 'skills/')):
             # Packaged Markdown is not ordinary prose.
             all_areas()
