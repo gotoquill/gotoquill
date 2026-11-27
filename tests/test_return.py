@@ -189,8 +189,14 @@ def _between(p, a, b):
 def test_hero_blocks_identical_and_wired():
     htmls = [FILES[0].parent / "index.html", FILES[1], FILES[2]]
     css = {_between(p, "/* hero-css:start", "/* hero-css:end */")[0] for p in htmls}
-    js = {_between(p, "/* hero:start", "/* hero:end */")[0] for p in FILES}
+    js = {_between(p, "/* hero:start", "/* hero:end */")[0] for p in FILES[1:]}  # Local date controls differ from the hosted page
     assert len(css) == 1 and len(js) == 1
+    # Outside the date controls, retain the hosted/local hero parity check.
+    def without_dates(path):
+        block = _between(path, "/* hero:start", "/* hero:end */")[0].split("\n", 1)[1]
+        start, end = block.index("// sbdate:start"), block.index("function sbChecked")
+        return block[:start] + block[end:]
+    assert len({without_dates(p) for p in FILES}) == 1
     c, j = css.pop(), js.pop()
     for k in ("Inter,ui-sans-serif,-apple-system", "prefers-color-scheme:dark", "prefers-reduced-motion:reduce", "heroPulse", "#heroSheet", ".heroReceipt", "heroDraw", ".heroActions{position:sticky;bottom:0", "safe-area-inset-bottom", "--chipFs", "text-overflow:ellipsis", "heroChip.icon::before", "#heroSheet::backdrop"):
         assert k in c, k

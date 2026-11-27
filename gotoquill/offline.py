@@ -119,6 +119,8 @@ def prepare_request(*, pdf_path: str, output_path: str | None = None, signer_nam
     s = get_settings()
     from .returnto import normalize as _rt
     return_to = _rt(return_to)
+    if date_format is not None and date_format not in pdf.DATE_FORMATS:
+        raise SignError("date_format must be DD/MM/YYYY, MM/DD/YYYY or YYYY-MM-DD")
     src = Path(pdf_path).expanduser()
     if not src.is_file():
         raise SignError(f"file not found: {pdf_path}", 404)
@@ -342,6 +344,10 @@ def apply_signature_response(request_id: str, response_path: str | None = None, 
         original = (_dir(request_id) / "original.pdf").read_bytes()
         signer = name or typed or d["signer_name"] or None
         sctx = signer_context(resp)
+        try:
+            sctx.update(pdf.validate_date_choice(resp.get("date_format"), resp.get("date_text")))
+        except pdf.PdfError as e:
+            raise SignError(str(e)) from e
         browser_hash = resp.get("browser_pdf_sha256")
         if browser_hash is not None and not re.fullmatch(r"[0-9a-f]{64}", str(browser_hash)):
             raise SignError("invalid browser PDF hash")
@@ -357,6 +363,7 @@ def apply_signature_response(request_id: str, response_path: str | None = None, 
             "signed_at": _iso(signed_at), "client_timestamp": cts or None, "applied_at": _iso(now),
             "signer_timezone": sctx.get("timezone"), "signer_utc_offset_minutes": sctx.get("utc_offset_minutes"),
             "signer_locale": sctx.get("locale"), "signed_by_line": signed_by,
+            "date_format": sctx.get("date_format"), "date_text": sctx.get("date_text"),
             "delivery": d.get("delivery", DELIVERY), "ip": None, "user_agent": str(resp.get("user_agent") or "")[:500],
             "method": method, "typed_name": typed or None, "signature_source": f"newly {method} in " + ("offline file" if d.get("delivery", DELIVERY) == DELIVERY else "sealed-link page"),
             "consent_text": d["consent_text"], "consent_given": True,

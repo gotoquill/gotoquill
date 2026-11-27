@@ -9,7 +9,7 @@ from pathlib import Path
 from . import pdfdoc
 
 from . import pdf
-from .labels import MAX_LABEL_WORDS, normalize_label, is_id_label, is_hebrew_signature
+from .labels import MAX_LABEL_WORDS, normalize_label, is_id_label, is_hebrew_signature, logical_label, role_hint
 
 # prefixes of a "signature" word, per language (lower case). Also tested reversed (RTL text stored visually).
 SIG_PREFIXES = ("sign", "firma", "unterschrift", "unterzeichn", "assinatura", "handtekening", "ondertekening",
@@ -331,6 +331,15 @@ def _widget_kind(w) -> str | None:
     return None
 
 
+def _sort_spots(sigs: list) -> None:
+    # This is also the order consumed by --spots: role, then page and geometry.
+    for spot in sigs:
+        spot["label"] = logical_label(spot.get("label", ""))
+        spot["role_hint"] = role_hint(spot["label"])
+    sigs.sort(key=lambda s: ({"signer?": 0, "unknown": 1, "official?": 2}[s["role_hint"]],
+                             s["page"], round(s["_rect"].y0 / 4), s["_rect"].x0))
+
+
 def detect(data: bytes) -> dict:
     """All signature and date spots: {"signature": [...], "date": [...], "method": ..., "has_text": bool}."""
     sigs, dates = [], []
@@ -358,9 +367,9 @@ def detect(data: bytes) -> dict:
                     dates.append(_spot(p.number + 1, s["rect"], "date", source="label", label=s["label"],
                                        target=s["target"]) | {"_rect": s["rect"]})
         if from_fields:
-            sigs.sort(key=lambda s: (s["page"], round(s["_rect"].y0 / 4), s["_rect"].x0))
+            _sort_spots(sigs)
             return {"signature": sigs, "date": dates, "method": "form field", "has_text": True}
-    sigs.sort(key=lambda s: (s["page"], round(s["_rect"].y0 / 4), s["_rect"].x0))
+    _sort_spots(sigs)
     return {"signature": sigs, "date": dates, "method": "label" if sigs else "none", "has_text": has_text}
 
 

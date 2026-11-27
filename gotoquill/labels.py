@@ -5,6 +5,40 @@ import unicodedata
 MAX_LABEL_WORDS = 8
 
 
+def logical_label(text: str) -> str:
+    """Repair visual-order Hebrew signing labels only when known words provide evidence.
+
+    PDF extraction may reverse letters, words, or both. Never reverse Latin text,
+    numbers, or already logical labels. Unknown Hebrew is left as extracted.
+    """
+    known = {"חתימת", "חתימה", "הנישום", "המבקש", "המבוטח", "פקיד", "הפקיד", "תאריך", "לשימוש", "המשרד"}
+
+    def fix(match):
+        original = match[0]
+        words = original.split()
+        candidates = [words, [w[::-1] for w in words], list(reversed(words)),
+                      [w[::-1] for w in reversed(words)]]
+
+        def score(ws):
+            return (sum(w in known for w in ws), int(bool(ws) and ws[0] in ("חתימת", "חתימה", "לשימוש")))
+
+        best = max(candidates, key=score)
+        if score(best) <= score(words):
+            return original
+        return original[:len(original) - len(original.lstrip())] + " ".join(best) + original[len(original.rstrip()):]
+
+    return re.sub(r"[א-ת]+(?:[ \t]+[א-ת]+)*", fix, text or "")
+
+
+def role_hint(text: str) -> str:
+    text = logical_label(text).lower()
+    if any(word in text for word in ("פקיד", "inspector", "for office use", "לשימוש המשרד", "official", "reviewer")):
+        return "official?"
+    if any(word in text for word in ("חתימת הנישום", "חתימת המבקש", "signature of taxpayer", "taxpayer", "applicant", "signer")):
+        return "signer?"
+    return "unknown"
+
+
 def normalize_label(text: str) -> str:
     text = unicodedata.normalize("NFKC", text or "")
     text = re.sub(r"[\u0000\u0591-\u05c7\u200e\u200f\u202a-\u202e\u2066-\u2069]", "", text)

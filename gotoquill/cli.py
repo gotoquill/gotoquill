@@ -33,13 +33,14 @@ def main(argv: list[str] | None = None) -> None:
     s = sub.add_parser("sign", help="open a signing page for a PDF and wait")
     s.add_argument("pdf")
     s.add_argument("-o", "--output", help="signed PDF path (default: <name>.signed.pdf)")
-    s.add_argument("--spots", help="signature spots: first, last, all, or 1,3 (see --list-spots)")
-    s.add_argument("--list-spots", action="store_true", help="list numbered signature candidates and exit")
+    s.add_argument("--spots", help="signature spots: first, last, all, or 1,3; numbers match --list-spots (signer first, official last, then page/position)")
+    s.add_argument("--list-spots", action="store_true", help="list numbered signature candidates with role hints; numbers are accepted by --spots")
     s.add_argument("--signer-name")
     s.add_argument("--message")
     s.add_argument("--add-date", action="store_true")
     s.add_argument("--no-proof-line", dest="proof_line", action="store_false")
-    s.add_argument("--date-format")
+    s.add_argument("--date-format", choices=["DD/MM/YYYY", "MM/DD/YYYY", "YYYY-MM-DD"],
+                   help="requester default; the signer can override it")
     s.add_argument("--share-link", action="store_true", default=None,
                    help=argparse.SUPPRESS)  # deprecated Cloudflare tunnel; use --link
     s.add_argument("--link", action="store_true",
@@ -113,7 +114,7 @@ def main(argv: list[str] | None = None) -> None:
             if a.list_spots:
                 for i, candidate in enumerate(candidates, 1):
                     label = candidate.get("label") or candidate.get("field_name") or "Signature"
-                    print(f"{i}. Page {candidate['page']}: {label}")
+                    print(f"{i}. Page {candidate['page']}: {candidate['role_hint']:9} {label}")
                 if not candidates:
                     print("No signature spots detected.")
                 return

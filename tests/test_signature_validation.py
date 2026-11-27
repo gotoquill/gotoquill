@@ -42,7 +42,8 @@ def capture_block(path):
 
 
 def test_capture_guards_are_shared():
-    assert capture_block('gotoquill/static/offline.html') == capture_block('gotoquill/static/sign.html') == capture_block('web/sign.js')
+    assert capture_block('gotoquill/static/offline.html') == capture_block('gotoquill/static/sign.html')
+    assert capture_block('gotoquill/static/sign.html').split('function trimCanvas')[0] == capture_block('web/sign.js').split('function sigPng')[0]
 
 
 def test_browser_validation_and_invalid_stroke_geometry():

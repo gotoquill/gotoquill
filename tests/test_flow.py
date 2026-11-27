@@ -51,7 +51,7 @@ def test_local_flow_binds_localhost_writes_files_and_shuts_down(env, pdf_file, s
     assert httpx.get(url + "/page/1.png").content.startswith(b"\x89PNG")
     assert env.status(r["request_id"])["status"] == "pending"
 
-    assert httpx.post(url + "/submit", json=sign_body(), headers={"User-Agent": "pytest-browser/1.0"}).json() == {"status": "signed"}
+    assert httpx.post(url + "/submit", json=sign_body(), headers={"User-Agent": "pytest-browser/1.0"}).json()["status"] == "signed"
     st = env.status(r["request_id"], wait_seconds=10)
     assert st["status"] == "completed" and st["signer_name"] == "Alex Example"
     out = pdf_file.with_name("contract - signed.pdf").read_bytes()
@@ -64,7 +64,7 @@ def test_local_flow_binds_localhost_writes_files_and_shuts_down(env, pdf_file, s
         p = d[0]
         assert len(p.get_images()) == 1
         from datetime import datetime as _dt
-        day = _dt.fromisoformat(a["signed_at"].replace("Z", "+00:00")).strftime("%d %b %Y")
+        day = _dt.fromisoformat(a["signed_at"].replace("Z", "+00:00")).strftime("%d/%m/%Y")
         assert f"Signed {day}" in p.get_text() and "(UTC)" in p.get_text()
         assert p.min_pixel((72, 580, 272, 638)) < 100
     # temp page is gone
@@ -255,7 +255,7 @@ def test_date_line_avoids_existing_text(sample_pdf):
                     datetime(2026, 1, 2, 3, 4, tzinfo=timezone.utc), "X", "rid")
     with Opened(out) as d:
         p = d[0]
-        hits = p.search_for("Signed 02 Jan 2026, 03:04 (UTC)")
+        hits = p.search_for("Signed 02/01/2026, 03:04 (UTC)")
         label = p.search_for("Contractor signature")[0]
         assert hits and label
         assert not hits[0].intersects(label)

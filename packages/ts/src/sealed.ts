@@ -5,6 +5,8 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { aad, b64u, b64uDecode, hmacSha256Hex, newKey, newRequestId, newTopic, proofMessage, safeEqualHex, seal, unseal } from "./crypto.js";
 import { SignError } from "./errors.js";
 import {
+  DATE_FORMATS,
+  type DateFormat,
   defaultPlacements,
   inspectPdf,
   placeholderPngBase64,
@@ -52,6 +54,7 @@ export type CreateSealedOpts = {
   message?: string;
   placements?: Placement[];
   addDate?: boolean;
+  dateFormat?: DateFormat;
   expiresInMinutes?: number;
   outputPath?: string;
   returnTo?: string | null;
@@ -92,6 +95,8 @@ export async function createSealedRequest(opts: CreateSealedOpts): Promise<Recor
     }
   }
 
+  if (opts.dateFormat != null && !DATE_FORMATS.includes(opts.dateFormat)) throw new SignError("invalid date_format");
+  for (const p of placements) if (opts.dateFormat && !p.date_format) p.date_format = opts.dateFormat;
   const ttl = opts.expiresInMinutes ?? DEFAULT_TTL_MINUTES;
   if (ttl < 1 || ttl > MAX_TTL_MINUTES) throw new SignError(`expires_in_minutes must be 1..${MAX_TTL_MINUTES}`);
 
@@ -126,6 +131,7 @@ export async function createSealedRequest(opts: CreateSealedOpts): Promise<Recor
       w: w / size[0],
       h: h / size[1],
       kind: p.kind || "signature",
+      date_format: p.date_format,
     };
   });
 
@@ -289,6 +295,8 @@ export async function applyResponseObj(requestId: string, resp: Record<string, u
   const original = stateExists(requestId) ? readOriginal(requestId) : Buffer.from(d.pdf_base64 || "", "base64");
   const signer = name || typed || d.signer_name || null;
   const sctx: SignerCtx = {
+    date_format: resp.date_format as string | undefined,
+    date_text: resp.date_text as string | undefined,
     timezone: (resp.signer_timezone as string) || null,
     utc_offset_minutes: typeof resp.signer_utc_offset === "number" ? resp.signer_utc_offset : null,
     locale: (resp.signer_locale as string) || null,

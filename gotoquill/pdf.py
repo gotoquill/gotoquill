@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import re
 from datetime import datetime, timedelta, timezone
 
@@ -106,7 +107,7 @@ def free_line_rect(page: "pdfdoc.Page", anchor: "pdfdoc.Rect", height: float = 1
 
 DATE_WORDS = ("date", "dated", "תאריך", "fecha", "datum", "data")
 _NOT_DATE = re.compile(r"(up|candi|vali|man|accommo|consoli|liqui|sen)date")
-_ISO_LOCALES = ("sv", "ja", "zh", "ko", "lt", "hu", "fr-ca", "en-ca")
+DATE_FORMATS = {"DD/MM/YYYY": "%d/%m/%Y", "MM/DD/YYYY": "%m/%d/%Y", "YYYY-MM-DD": "%Y-%m-%d"}
 
 
 def _is_date_word(t: str) -> bool:
@@ -157,15 +158,42 @@ def signer_zone(ctx: dict | None):
 
 def default_date_format(locale: str | None) -> str:
     loc = (locale or "").lower().replace("_", "-")
-    if not loc:
-        return "%d %b %Y"
-    if loc in ("en-us", "en-ph", "en") or loc.startswith("en-us"):
+    if loc == "en-us" or loc.startswith("en-us-"):
         return "%m/%d/%Y"
-    if any(loc == x or loc.startswith(x + "-") for x in _ISO_LOCALES):
-        return "%Y-%m-%d"
-    if loc.startswith(("de", "ru", "pl", "fi", "cs", "tr", "uk", "nb", "da")):
-        return "%d.%m.%Y"
     return "%d/%m/%Y"
+
+
+def numeric_date_format(fmt: str | None, locale: str | None = None) -> str:
+    """Old requests may contain arbitrary formats; all new stamps are numeric."""
+    return DATE_FORMATS.get(fmt, fmt if fmt in DATE_FORMATS.values() else default_date_format(locale))
+
+
+def validate_date_choice(fmt: str | None, text: str | None) -> dict:
+    if fmt is None and text is None:
+        return {}
+    if (not isinstance(fmt, str) or fmt not in DATE_FORMATS or not isinstance(text, str)
+            or not re.fullmatch(r"[0-9]{2}/[0-9]{2}/[0-9]{4}|[0-9]{4}-[0-9]{2}-[0-9]{2}", text)):
+        raise PdfError("date must be numeric and use DD/MM/YYYY, MM/DD/YYYY or YYYY-MM-DD")
+    try:
+        day = datetime.strptime(text, DATE_FORMATS[fmt])
+    except ValueError as e:
+        raise PdfError("invalid signing date") from e
+    if not 2000 <= day.year <= 2100 or day.strftime(DATE_FORMATS[fmt]) != text:
+        raise PdfError("signing date must be in 2000..2100")
+    return {"date_format": fmt, "date_text": text}
+
+
+def trim_signature(png: bytes) -> bytes:
+    """Remove transparent margins before fitting the ink in the placement."""
+    from PIL import Image
+    with Image.open(io.BytesIO(png)) as source:
+        image = source.convert("RGBA")
+        bounds = image.getchannel("A").getbbox()
+        if not bounds:
+            raise PdfError("signature has no visible ink")
+        out = io.BytesIO()
+        image.crop(bounds).save(out, format="PNG")
+        return out.getvalue()
 
 
 _TOKENS = [("YYYY", "%Y"), ("MMMM", "%B"), ("MMM", "%b"), ("MM", "%m"), ("DD", "%d"), ("YY", "%y"),
@@ -328,7 +356,7 @@ def stamp_plan(data: bytes, placements: list[dict]) -> dict:
                 proof = free_line_rect(page, anchor, height=11)
                 if not any(proof.intersects(r) for r in protected):
                     ops.append({"kind": "proof", "page": idx, "rect": list(proof),
-                                "date_format": "%d %b %Y, %H:%M", "font_size": 8,
+                                "date_format": fmt, "font_size": 8,
                                 "baseline_inset": 2.5, "color": [0.25, 0.25, 0.25]})
         return {"version": 1, "coordinates": "cropbox-top-left", "font": "Helvetica",
                 "ascent": 0.718, "descent": -0.207, "date_font_size": 11,
@@ -343,6 +371,8 @@ def stamp(data: bytes, placements: list[dict], signature_png: bytes, signed_at: 
     tz, tz_label = signer_zone(signer)
     local = signed_at.astimezone(tz)
     locale = (signer or {}).get("locale")
+    choice = validate_date_choice((signer or {}).get("date_format"), (signer or {}).get("date_text"))
+    signature_png = trim_signature(signature_png)
     with pdfdoc.Document.open(data) as doc:
         for rem in plan["remove_widgets"]:
             page = doc[rem["page"]]
@@ -358,11 +388,11 @@ def stamp(data: bytes, placements: list[dict], signature_png: bytes, signed_at: 
                 continue
             if kind == "signed_by" and not signed_by_line:
                 continue
-            text = local.strftime(to_strftime(op.get("date_format"), locale)).encode("cp1252", errors="replace").decode("cp1252")
+            text = choice.get("date_text") or local.strftime(numeric_date_format(op.get("date_format"), locale))
             if kind == "date":
                 _write_date(page, rect, text)
                 continue
-            text = signed_by_text(signer_name, text) if kind == "signed_by" else f"Signed {text} ({tz_label})"
+            text = signed_by_text(signer_name, text) if kind == "signed_by" else f"Signed {text}, {local:%H:%M} ({tz_label})"
             text = text.encode("cp1252", errors="replace").decode("cp1252")
             fs = op["font_size"]
             if kind == "signed_by":
