@@ -14,6 +14,7 @@ h1{font-size:1.2rem;margin:.2rem 0}h2{font-size:1.05rem;margin:.2rem 0 .6rem}.mu
 .card{background:#fff;border:1px solid var(--bd);border-radius:12px;padding:14px;margin:10px 0}
 .pg{position:relative;margin:8px 0}.pg img,.pg canvas{width:100%;display:block;border:1px solid var(--bd);border-radius:6px;background:#fff}
 .box{position:absolute;border:2px dashed #1f5eff;background:rgba(31,94,255,.08);border-radius:4px;font-size:.7rem;color:#1f5eff;padding:1px 3px;font-weight:600;box-sizing:border-box}
+.box.dateBox,.box[data-kind="date"]{display:flex;align-items:center;justify-content:center;text-align:center;direction:ltr;white-space:nowrap;box-sizing:border-box;overflow:hidden}
 button.box{min-height:0;margin:0;font:600 .72rem/1.1 system-ui,sans-serif;text-align:left;display:flex;align-items:center;cursor:pointer;-webkit-tap-highlight-color:transparent}
 button.box:hover,button.box:focus-visible{background:rgba(31,94,255,.2);outline:2px solid #1f5eff;outline-offset:1px}
 .padWrap{position:relative}
@@ -773,8 +774,17 @@ async function stampBrowser(resp){
     text=Array.from(text,c=>{try{font.encodeText(c);return c;}catch(_){return '?';}}).join('');
     let fs=op.font_size, x=x0, baseline=y1-op.baseline_inset;
     if(op.kind==='date'){
-      fs=Math.min(plan.date_font_size,(w-2*op.pad)/Math.max(font.widthOfTextAtSize(text,1),0.001),(h-2*op.pad)/(plan.ascent-plan.descent));
-      x+=op.pad; baseline=y0+op.pad+(h-2*op.pad-(plan.ascent-plan.descent)*fs)/2+plan.ascent*fs;
+      // Match Python's visible glyph bounds and unkerned PDF text advances.
+      const boxes=[]; let advance=0;
+      for(const char of text){
+        const b=plan.glyph_bounds[char];
+        if(b)boxes.push([advance+b[0],b[1],advance+b[2],b[3]]);
+        advance+=font.widthOfTextAtSize(char,1);
+      }
+      const left=Math.min(...boxes.map(b=>b[0])), bottom=Math.min(...boxes.map(b=>b[1]));
+      const right=Math.max(...boxes.map(b=>b[2])), top=Math.max(...boxes.map(b=>b[3]));
+      fs=Math.min(plan.date_font_size,(w-2*op.pad)/(right-left),(h-2*op.pad)/(top-bottom));
+      x=x0+w/2-(left+right)*fs/2; baseline=y0+h/2+(top+bottom)*fs/2;
     } else if(op.kind==='signed_by'){
       while(fs>op.min_font_size&&font.widthOfTextAtSize(text,fs)>w) fs-=0.25;
     }

@@ -521,7 +521,7 @@ function start(){
   $('consentText').textContent = D.consent_text;
   PAGES.forEach((src, i) => { const wrap = document.createElement('div'); wrap.className = 'pg';
     const im = new Image(); im.alt = 'Page ' + (i + 1) + ' of ' + PAGES.length; im.src = src; wrap.appendChild(im);
-    (D.boxes || []).filter(b => b.page === i + 1).forEach(b => { const x = document.createElement(b.kind === 'date' ? 'div' : 'button'); x.className = 'box';
+    (D.boxes || []).filter(b => b.page === i + 1).forEach(b => { const x = document.createElement(b.kind === 'date' ? 'div' : 'button'); x.className = b.kind === 'date' ? 'box dateBox' : 'box';
       if (b.kind !== 'date') { x.type = 'button'; x.setAttribute('aria-label', 'Sign here: go to the signature pad'); x.onclick = goToPad; }
       x.style.left = (b.left*100)+'%'; x.style.top = (b.top*100)+'%'; x.style.width = (b.width*100)+'%'; x.style.height = (b.height*100)+'%';
       x.textContent = b.kind === 'date' ? 'Date' : b.kind === 'initials' ? 'Initials' : 'Sign here'; wrap.appendChild(x); });

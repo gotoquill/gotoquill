@@ -50,7 +50,7 @@ not copied into Gotoquill source. Source artifacts and hashes are recorded in `u
 | cryptography | 50.0.2 | direct runtime | Apache-2.0 OR BSD-3-Clause |
 | exceptiongroup | 1.3.1 | transitive / optional / development | MIT ([version metadata](https://pypi.org/project/exceptiongroup/1.3.1/)) |
 | fastapi | 0.162.0 | direct runtime | MIT |
-| gotoquill | 0.2.0 | project | Apache-2.0 |
+| gotoquill | 0.3.0 | project | Apache-2.0 |
 | greenlet | 3.5.6 | transitive / optional / development | MIT AND PSF-2.0 |
 | h11 | 0.16.0 | transitive / optional / development | MIT |
 | httpcore | 1.0.9 | transitive / optional / development | BSD-3-Clause |
