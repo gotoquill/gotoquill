@@ -43,11 +43,13 @@ def test_html_is_self_contained(req, pdf_file):
     r, html, d = req
     assert r["html_path"].endswith("Contract - sign.html") and "_" not in r["html_path"].rsplit("/", 1)[1]
     assert d["request_id"] == r["request_id"] and d["original_sha256"] == hashlib.sha256(pdf_file.read_bytes()).hexdigest()
-    assert "data:image/png;base64," in html and d["boxes"] and d["response_name"] == "Contract - signature"
+    assert d["pdf_base64"] and d["boxes"] and d["response_name"] == "Contract signature"
     # Privacy links are deliberate navigation, not external resources or network dependencies.
     external = re.findall(r"""(?:src|href)\s*=\s*["'](https?://[^"']+)""", html)
     assert set(external) == {"https://gotoquill.com/privacy/", "https://gotoquill.com/privacy/he/"}
-    assert "fetch(" not in html and "XMLHttpRequest" not in html and "connect-src 'none'" in html
+    assert "connect-src 'none'" in html
+    assert base64.b64decode(d["pdf_base64"]) == pdf_file.read_bytes()
+    assert "const PAGES" not in html and "pdfjs.GlobalWorkerOptions.workerSrc=scriptBlob" in html
 
 
 def test_apply_file_and_code_one_time(req, tmp_path):
@@ -107,15 +109,14 @@ def test_expiry_cancel_and_restart(req, pdf_file):
     assert tools.cancel_request(r2["request_id"])["status"] == "cancelled"
 
 
-def test_done_screen_copy_primary_and_share(req):
+def test_done_screen_receipt_primary_and_share(req):
     _, html, _ = req
     done = html[html.index('id="done"'):html.index("</main>")]
     assert done.count('class="primary') == 1
-    assert 'id="copy"' in done and "Copy response code" in done and 'class="primary big"' in done
-    assert 'id="send"' in done and "Share reply file" in done
-    assert "Paste this back into the chat" in done
-    assert "paste it as a message" in done or "paste it into the chat" in done or "Paste it into the chat" in html
-    assert 'id="code"' in done and 'id="share"' not in html
-    assert "function notifyHost" in html and "postMessage" in html and "navigator.share" in html
+    assert 'id="download" type="button" class="primary big"' in done
+    assert "Download signature receipt" in done and "Download signed PDF" in done
+    assert 'id="send"' in done and 'id="sharePdf"' in done
+    assert "attach it in the chat" in done
     trouble = done[done.index('<details id="trouble"'):done.index("</details>")]
-    assert "Other ways to send it back" in trouble and 'id="download"' in trouble
+    assert 'id="code"' in trouble and 'id="copy"' in trouble
+    assert "function notifyHost" in html and "navigator.share" in html

@@ -1,6 +1,6 @@
 """No-connection signing ("file mode"): for when the agent and the human share no network path.
 
-1. create_file_request() writes ONE self-contained HTML file (page images, request id, document hash, a
+1. create_file_request() writes ONE self-contained HTML file (original PDF, request id, document hash, a
    per-request key). No scripts, fonts or images are loaded from anywhere; it works opened from a phone's
    Downloads / Files app.
 2. The human signs in that file. It produces a small "signature response" (a .gotoquill JSON file, or a
@@ -113,8 +113,9 @@ def prepare_request(*, pdf_path: str, output_path: str | None = None, signer_nam
                     message: str | None = None, expires_in_minutes: int | None = None, page_width_px: int = 1000,
                     delivery: str = DELIVERY, default_ttl: int = DEFAULT_TTL_MINUTES, max_ttl: int = MAX_TTL_MINUTES,
                     extra: dict | None = None, spots=None, return_to: str | None = None) -> tuple[dict, dict, list[str], bytes]:
-    """Shared by file mode and sealed-link mode: checks the PDF, resolves placements, renders page PNGs and stores
-    the pending state. Returns (state, page_data for the signer, page PNGs as base64, original PDF bytes)."""
+    """Shared by file mode and sealed-link mode: checks the PDF, resolves placements and stores the pending state.
+    Offline mode embeds the original PDF; sealed mode retains its page PNG transport.
+    Returns (state, signer page data, sealed page PNGs as base64, original PDF bytes)."""
     s = get_settings()
     from .returnto import normalize as _rt
     return_to = _rt(return_to)
@@ -128,8 +129,6 @@ def prepare_request(*, pdf_path: str, output_path: str | None = None, signer_nam
         info = pdf.inspect_pdf(data, s.max_pages)
     except pdf.PdfError as e:
         raise SignError(str(e)) from e
-    if info["page_count"] > 60:
-        raise SignError("file mode supports up to 60 pages (the page images are embedded in one HTML file)")
     ttl = expires_in_minutes or default_ttl
     if not 1 <= ttl <= max_ttl:
         raise SignError(f"expires_in_minutes must be 1..{max_ttl}")
@@ -154,7 +153,8 @@ def prepare_request(*, pdf_path: str, output_path: str | None = None, signer_nam
             except (KeyError, TypeError, ValueError) as e:
                 raise SignError(f"bad placement {p}: {e}") from e
         boxes = _pl.boxes(doc, placements)
-        pages = [base64.b64encode(pdf.render_page_png(data, i + 1, page_width_px)).decode() for i in range(doc.page_count)]
+        pages = ([base64.b64encode(pdf.render_page_png(data, i + 1, page_width_px)).decode()
+                  for i in range(doc.page_count)] if delivery != DELIVERY else [])
     rid = "req_" + secrets.token_hex(8)
     key = secrets.token_hex(32)
     now = pdf.utcnow()
@@ -165,10 +165,12 @@ def prepare_request(*, pdf_path: str, output_path: str | None = None, signer_nam
     d = {
         "request_id": rid, "status": "pending", "delivery": delivery, "created_at": _iso(now), "expires_at": _iso(expires),
         "document_name": doc_name, "friendly_name": nice, "signer_name": (signer_name or None) and signer_name[:200],
-        "message": (message or None) and message[:1000], "placements": placements, "page_count": len(pages),
+        "message": (message or None) and message[:1000], "placements": placements, "page_count": info["page_count"],
         "original_sha256": pdf.sha256(data), "consent_text": s.consent_text, "key": key,
         "pdf_path": str(src.resolve()), "output_path": str(out), "audit_path": str(audit), "return_to": return_to,
     }
+    if delivery == DELIVERY:
+        d["stamp_plan"] = pdf.stamp_plan(data, placements)
     d.update(extra or {})
     rdir = _dir(rid)
     rdir.mkdir(mode=0o700)
@@ -178,7 +180,10 @@ def prepare_request(*, pdf_path: str, output_path: str | None = None, signer_nam
     _store(d)
     page_data = {k: d[k] for k in ("request_id", "document_name", "signer_name", "message", "page_count",
                                    "original_sha256", "consent_text", "created_at", "expires_at")}
-    page_data.update(return_to=return_to, key=key, response_name=f"{nice} - signature", boxes=boxes, version=1)
+    page_data.update(return_to=return_to, key=key, response_name=f"{nice} signature", boxes=boxes, version=1)
+    if delivery == DELIVERY:
+        page_data.update(pdf_base64=base64.b64encode(data).decode(), stamp_plan=d["stamp_plan"],
+                         signed_pdf_name=f"{nice} signed.pdf")
     return d, page_data, pages, data
 
 
@@ -218,7 +223,7 @@ def create_file_request(*, pdf_path: str, html_path: str | None = None, **kw: An
         "html_bytes": hp.stat().st_size, "expires_at": d["expires_at"], "document_sha256": d["original_sha256"],
         "output_path": str(out), "audit_path": str(audit), "placements": d["placements"],
         "next": (f"Send the user the file '{hp.name}' (attach it in the chat). They open it in any browser, sign, and "
-                 f"send back '{nice} - signature.gotoquill' (or paste the code that starts with {CODE_PREFIX}). "
+                 f"download the signed PDF and send back '{nice} signature.gotoquill' (response code fallback: {CODE_PREFIX}). "
                  f"Then call apply_signature_response(request_id='{rid}', response_path=... or response_text=...)."),
     }, d)
 
@@ -226,9 +231,18 @@ def create_file_request(*, pdf_path: str, html_path: str | None = None, **kw: An
 def render_html(page_data: dict, pages_b64: list[str], title: str) -> str:
     tpl = resources.files("gotoquill").joinpath("static/offline.html").read_text(encoding="utf-8")
     blob = json.dumps(page_data).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
-    pages = json.dumps(["data:image/png;base64," + p for p in pages_b64])
+    vendor = Path(__file__).resolve().parent / "web" / "vendor"
+    if not vendor.is_dir():
+        vendor = Path(__file__).resolve().parent.parent / "web" / "vendor"
+    for token, filename in (("__PDF_LIB__", "pdf-lib.min.js"), ("__PDF_JS__", "pdf.min.mjs"),
+                            ("__PDF_WORKER__", "pdf.worker.min.mjs")):
+        encoded = base64.b64encode((vendor / filename).read_bytes()).decode()
+        tpl = tpl.replace(token, encoded)
+    licenses = {name: (vendor / name).read_text(encoding="utf-8")
+                for name in ("LICENSE.pdf-lib", "LICENSE.pdfjs")}
+    tpl = tpl.replace("__PDF_LICENSES__", json.dumps(licenses).replace("<", "\\u003c"))
     return (tpl.replace("__TITLE__", _html.escape(title + " - sign"))
-               .replace("/*__DATA__*/null", blob).replace("/*__PAGES__*/[]", pages))
+               .replace("/*__DATA__*/null", blob))
 
 
 # ---------------------------------------------------------------- step 3
@@ -328,8 +342,12 @@ def apply_signature_response(request_id: str, response_path: str | None = None, 
         original = (_dir(request_id) / "original.pdf").read_bytes()
         signer = name or typed or d["signer_name"] or None
         sctx = signer_context(resp)
+        browser_hash = resp.get("browser_pdf_sha256")
+        if browser_hash is not None and not re.fullmatch(r"[0-9a-f]{64}", str(browser_hash)):
+            raise SignError("invalid browser PDF hash")
         signed_by = resp.get("signed_by_line") is True
-        out_bytes = pdf.stamp(original, d["placements"], png, signed_at, signer, request_id, sctx, signed_by_line=signed_by)
+        out_bytes = pdf.stamp(original, d["placements"], png, signed_at, signer, request_id, sctx,
+                              signed_by_line=signed_by, plan=d.get("stamp_plan"))
         out = Path(output_path).expanduser().resolve() if output_path else Path(d["output_path"])
         audit_p = default_output_paths(None, str(out), request_id)[1] if output_path else Path(d["audit_path"])
         out.parent.mkdir(parents=True, exist_ok=True)
@@ -343,7 +361,9 @@ def apply_signature_response(request_id: str, response_path: str | None = None, 
             "method": method, "typed_name": typed or None, "signature_source": f"newly {method} in " + ("offline file" if d.get("delivery", DELIVERY) == DELIVERY else "sealed-link page"),
             "consent_text": d["consent_text"], "consent_given": True,
             "original_sha256": d["original_sha256"], "signature_sha256": sig_sha,
-            "signed_sha256": pdf.sha256(out_bytes), "proof": "hmac-sha256 verified",
+            "signed_sha256": pdf.sha256(out_bytes),
+            "python_pdf_sha256": pdf.sha256(out_bytes), "browser_pdf_sha256": browser_hash,
+            "pdf_comparison": "Browser and authoritative Python PDFs are not claimed byte-identical", "proof": "hmac-sha256 verified",
             "response_sha256": hashlib.sha256(json.dumps(resp, sort_keys=True).encode()).hexdigest(),
         }
         audit_p.write_text(json.dumps(audit, indent=2))

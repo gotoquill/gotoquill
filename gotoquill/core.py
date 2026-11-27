@@ -271,6 +271,7 @@ class Service:
                 self._check_nonce(token, vault_nonce)
                 try:
                     png = vault.get_png(use_saved)
+                    png = _decode_png(base64.b64encode(png).decode(), self.s.max_signature_bytes)
                 except vault.VaultError as e:
                     raise SignError(str(e), 404) from e
                 source = "saved signature reused"
@@ -342,6 +343,23 @@ def _decode_png(b64: str, limit: int) -> bytes:
         raise SignError("signature is not valid base64") from e
     if not png.startswith(b"\x89PNG\r\n\x1a\n"):
         raise SignError("signature must be a PNG image")
+    if len(png) > limit:
+        raise SignError("signature image too large")
+    from PIL import Image, ImageChops, UnidentifiedImageError
+    import io
+    try:
+        with Image.open(io.BytesIO(png)) as image:
+            if image.format != "PNG" or not 0 < image.width * image.height <= 16_000_000:
+                raise ValueError("invalid dimensions")
+            image.verify()
+        with Image.open(io.BytesIO(png)) as image:
+            rgba = image.convert("RGBA")
+            # Composite on white so transparent RGB values cannot count as ink.
+            visible = Image.alpha_composite(Image.new("RGBA", rgba.size, "white"), rgba).convert("RGB")
+            if ImageChops.difference(visible, Image.new("RGB", visible.size, "white")).getbbox() is None:
+                raise ValueError("blank image")
+    except (ValueError, OSError, SyntaxError, UnidentifiedImageError, Image.DecompressionBombError) as e:
+        raise SignError("signature must be a valid PNG with visible ink") from e
     return png
 
 

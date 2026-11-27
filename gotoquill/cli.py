@@ -33,6 +33,8 @@ def main(argv: list[str] | None = None) -> None:
     s = sub.add_parser("sign", help="open a signing page for a PDF and wait")
     s.add_argument("pdf")
     s.add_argument("-o", "--output", help="signed PDF path (default: <name>.signed.pdf)")
+    s.add_argument("--spots", help="signature spots: first, last, all, or 1,3 (see --list-spots)")
+    s.add_argument("--list-spots", action="store_true", help="list numbered signature candidates and exit")
     s.add_argument("--signer-name")
     s.add_argument("--message")
     s.add_argument("--add-date", action="store_true")
@@ -103,6 +105,26 @@ def main(argv: list[str] | None = None) -> None:
     sg.add_argument("--name", choices=["signature", "initials"], help="only this one (default: all)")
     a = ap.parse_args(argv)
 
+    if a.cmd == "sign":
+        from pathlib import Path
+        from . import placement
+        try:
+            candidates = placement.detect(Path(a.pdf).expanduser().read_bytes())["signature"]
+            if a.list_spots:
+                for i, candidate in enumerate(candidates, 1):
+                    label = candidate.get("label") or candidate.get("field_name") or "Signature"
+                    print(f"{i}. Page {candidate['page']}: {label}")
+                if not candidates:
+                    print("No signature spots detected.")
+                return
+            if a.spots is not None and not a.spots.strip():
+                ap.error("--spots must be first, last, all, or comma-separated spot numbers")
+            if len(candidates) > 1 and a.spots is None:
+                ap.error("multiple signature spots detected; use --list-spots, then --spots first|last|all|1,3")
+            placement._select(candidates, a.spots)
+        except (OSError, ValueError) as e:
+            ap.error(str(e))
+
     if a.cmd == "connect":
         from . import connect as C
         from . import targets as T
@@ -159,7 +181,7 @@ def main(argv: list[str] | None = None) -> None:
         from .core import SignError
         try:
             r = offline.create_file_request(pdf_path=a.pdf, html_path=a.html, output_path=a.output,
-                                            signer_name=a.signer_name, message=a.message, add_date=a.add_date, proof_line=a.proof_line, date_format=a.date_format, return_to=a.return_to)
+                                            signer_name=a.signer_name, message=a.message, add_date=a.add_date, proof_line=a.proof_line, date_format=a.date_format, return_to=a.return_to, spots=a.spots)
         except SignError as e:
             print(f"error: {e}", file=sys.stderr)
             sys.exit(2)
@@ -204,7 +226,7 @@ def main(argv: list[str] | None = None) -> None:
             r = sealed.create_sealed_request(pdf_path=a.pdf, output_path=a.output, signer_name=a.signer_name,
                                              message=a.message, add_date=a.add_date, proof_line=a.proof_line, date_format=a.date_format, expires_in_minutes=a.expires,
                                              as_file=a.link_file, html_path=a.html if a.link_file else None,
-                                             return_to=a.return_to)
+                                             return_to=a.return_to, spots=a.spots)
         except SignError as e:
             print(f"error: {e}", file=sys.stderr)
             sys.exit(2)
@@ -243,7 +265,7 @@ def main(argv: list[str] | None = None) -> None:
         try:
             r = signer.request(pdf_path=a.pdf, output_path=a.output, signer_name=a.signer_name, message=a.message,
                                add_date=a.add_date, proof_line=a.proof_line, date_format=a.date_format, open_browser=False if a.no_browser else None,
-                               share_link=a.share_link, return_to=a.return_to)
+                               share_link=a.share_link, return_to=a.return_to, spots=a.spots)
         except SignError as e:
             print(f"error: {e}", file=sys.stderr)
             sys.exit(2)

@@ -341,6 +341,7 @@ def detect(data: bytes) -> dict:
                 if k:
                     (sigs if k == "signature" else dates).append(
                         {"field_name": w.field_name, "kind": k, "source": "form field", "page": p.number + 1,
+                         "label": getattr(w, "field_label", None) or w.field_name,
                          "_rect": pdfdoc.Rect(w.rect)})
         from_fields = bool(sigs)
         has_text = False
@@ -357,6 +358,7 @@ def detect(data: bytes) -> dict:
                     dates.append(_spot(p.number + 1, s["rect"], "date", source="label", label=s["label"],
                                        target=s["target"]) | {"_rect": s["rect"]})
         if from_fields:
+            sigs.sort(key=lambda s: (s["page"], round(s["_rect"].y0 / 4), s["_rect"].x0))
             return {"signature": sigs, "date": dates, "method": "form field", "has_text": True}
     sigs.sort(key=lambda s: (s["page"], round(s["_rect"].y0 / 4), s["_rect"].x0))
     return {"signature": sigs, "date": dates, "method": "label" if sigs else "none", "has_text": has_text}
@@ -391,6 +393,8 @@ def _select(sigs: list, spots) -> list:
         return sigs[:1]
     if spots == "last":
         return sigs[-1:]
+    if isinstance(spots, str) and "," in spots:
+        spots = spots.split(",")
     if isinstance(spots, (int, str)):
         spots = [spots]
     out = []
@@ -439,6 +443,7 @@ def plan(data: bytes, placements: list[dict] | None, add_date: bool = False, spo
                                 s.get("label", "") for s in sigs[:5]) + "')")
                             + (f"; signing {len(chosen)} of them" if len(chosen) != len(sigs) else "") + ".")
         else:
+            _select(sigs, spots)
             with pdfdoc.Document.open(data) as doc:
                 p = doc[-1]
                 w, h = p.rect.width, p.rect.height
@@ -454,21 +459,14 @@ def plan(data: bytes, placements: list[dict] | None, add_date: bool = False, spo
     if add_date and not any(p.get("kind") == "date" for p in placements):
         det = det or detect(data)
         dates = det["date"]
-        field_dates = [d for d in dates if d.get("field_name")]
-        if field_dates:
-            add = field_dates
-        else:
-            with pdfdoc.Document.open(data) as doc:
-                rects = []
-                for p in placements:
-                    if p.get("kind", "signature") == "date":
-                        continue
-                    try:
-                        idx, r = pdf.resolve_rect(doc, p)
-                    except Exception:  # noqa: BLE001 - validated later with a proper error
-                        continue
-                    rects.append((idx + 1, r))
-            add = _nearest_dates(rects, dates)
+        with pdfdoc.Document.open(data) as doc:
+            rects = []
+            for p in placements:
+                if p.get("kind", "signature") == "date" or p.get("fill_document_date") is False:
+                    continue
+                idx, r = pdf.resolve_rect(doc, p)
+                rects.append((idx + 1, r))
+        add = _nearest_dates(rects, dates)
         for d in add:
             placements.append(_clean(d) | {"auto_date": True})
         info["date_spots"] = len(add)

@@ -275,52 +275,100 @@ def fill_date_fields(doc, text: str) -> int:
     return n
 
 
+def stamp_plan(data: bytes, placements: list[dict]) -> dict:
+    """Resolve geometry once, in unrotated CropBox points (top-left origin).
+
+    Both stamp engines consume these rectangles, typography and date formats.
+    Optional lines reserve their full area before the signer's name/date is known.
+    """
+    from .placement import plan, id_areas
+    if placements:
+        placements, _ = plan(data, placements, add_date=any(p.get("add_date") for p in placements))
+    zone_names = {}
+    if any("%Z" in str(p.get("date_format", "")) for p in placements):
+        # Browser Intl abbreviations differ from Python (e.g. GMT+9 vs JST).
+        # Ship exact names for the maximum offline signing window, including DST changes.
+        from zoneinfo import ZoneInfo, available_timezones
+        now = utcnow()
+        for name in sorted(available_timezones()):
+            zone = ZoneInfo(name)
+            names = {}
+            for day in range(-1, 32):
+                local = (now + timedelta(days=day)).astimezone(zone)
+                names[str(int(local.utcoffset().total_seconds() / 60))] = local.tzname()
+            zone_names[name] = names
+    ops, removals = [], []
+    with pdfdoc.Document.open(data) as doc:
+        for pl in placements:
+            idx, rect = resolve_rect(doc, pl)
+            page = doc[idx]
+            fmt = pl.get("date_format")
+            # Auto dates inherit the signature's requested format.
+            if pl.get("auto_date") and not fmt:
+                fmt = next((p.get("date_format") for p in placements if p.get("date_format")), None)
+            for w in page.widgets() or []:
+                if w.field_name == pl.get("field_name") or w.rect.intersects(rect):
+                    removals.append({"page": idx, "name": w.field_name, "rect": list(w.rect)})
+            pad = min(2.0, rect.width / 8, rect.height / 8)
+            kind = pl.get("kind", "signature")
+            op = {"kind": "date" if kind == "date" else "signature", "page": idx,
+                  "rect": list(rect), "pad": pad, "date_format": fmt}
+            ops.append(op)
+            if kind == "date":
+                continue
+            protected = id_areas(page)
+            line = free_line_rect(page, rect, height=9.5, width=max(rect.width, 120), max_shift=40)
+            if not any(line.intersects(r) for r in protected):
+                ops.append({"kind": "signed_by", "page": idx, "rect": list(line),
+                            "date_format": fmt, "font_size": 7, "min_font_size": 5,
+                            "baseline_inset": 2, "color": [0.45, 0.45, 0.47]})
+            if pl.get("add_date") and pl.get("proof_line", True):
+                # Reserve a separate proof line so opting into Signed by cannot overlap it.
+                anchor = pdfdoc.Rect(rect.x0, rect.y0, rect.x1, max(rect.y1, line.y1))
+                proof = free_line_rect(page, anchor, height=11)
+                if not any(proof.intersects(r) for r in protected):
+                    ops.append({"kind": "proof", "page": idx, "rect": list(proof),
+                                "date_format": "%d %b %Y, %H:%M", "font_size": 8,
+                                "baseline_inset": 2.5, "color": [0.25, 0.25, 0.25]})
+        return {"version": 1, "coordinates": "cropbox-top-left", "font": "Helvetica",
+                "ascent": 0.718, "descent": -0.207, "date_font_size": 11,
+                "operations": ops, "remove_widgets": removals, "zone_names": zone_names}
+
+
 def stamp(data: bytes, placements: list[dict], signature_png: bytes, signed_at: datetime,
-          signer_name: str | None, request_id: str, signer: dict | None = None, signed_by_line: bool = False) -> bytes:
-    """signer: {"timezone": IANA, "utc_offset_minutes": int, "locale": "he-IL"} from the signing page.
-    signed_by_line: the signer ticked 'Add "Signed by {name} · {date}" under my signature' (off by default)."""
+          signer_name: str | None, request_id: str, signer: dict | None = None, signed_by_line: bool = False,
+          *, plan: dict | None = None) -> bytes:
+    """Stamp the authoritative PDF using the same plan supplied to the offline browser."""
+    plan = plan or stamp_plan(data, placements)
     tz, tz_label = signer_zone(signer)
     local = signed_at.astimezone(tz)
     locale = (signer or {}).get("locale")
-    doc = pdfdoc.Document.open(data)
-    with doc:
-        from .placement import safe_placements
-        placements = safe_placements(doc, placements)
-        has_explicit_date = any(pl.get("kind") == "date" for pl in placements)
-        doc_date_done = has_explicit_date
-        resolved = [(pl, *resolve_rect(doc, pl)) for pl in placements]
-        for pl, idx, rect in resolved:
-            page = doc[idx]
-            kind = pl.get("kind", "signature")
+    with pdfdoc.Document.open(data) as doc:
+        for rem in plan["remove_widgets"]:
+            page = doc[rem["page"]]
             for w in list(page.widgets() or []):
-                if w.field_name == pl.get("field_name") or w.rect.intersects(rect):
+                if w.field_name == rem["name"] and list(w.rect) == rem["rect"]:
                     page.delete_widget(w)
+        for op in plan["operations"]:
+            page, rect = doc[op["page"]], pdfdoc.Rect(op["rect"])
+            kind = op["kind"]
+            if kind == "signature":
+                pad = op["pad"]
+                page.insert_image(pdfdoc.Rect(rect.x0 + pad, rect.y0 + pad, rect.x1 - pad, rect.y1 - pad), signature_png)
+                continue
+            if kind == "signed_by" and not signed_by_line:
+                continue
+            text = local.strftime(to_strftime(op.get("date_format"), locale)).encode("cp1252", errors="replace").decode("cp1252")
             if kind == "date":
-                fmt = to_strftime(pl.get("date_format"), locale)
-                _write_date(page, rect, local.strftime(fmt))
+                _write_date(page, rect, text)
                 continue
-            pad = min(2.0, rect.width / 8, rect.height / 8)
-            page.insert_image(pdfdoc.Rect(rect.x0 + pad, rect.y0 + pad, rect.x1 - pad, rect.y1 - pad), signature_png)
-            if signed_by_line:
-                _signed_by(page, rect, signer_name, local.strftime(to_strftime(pl.get("date_format"), locale)))
-            if not pl.get("add_date"):
-                continue
-            if not doc_date_done and pl.get("fill_document_date", True):
-                text = local.strftime(to_strftime(pl.get("date_format"), locale))
-                if fill_date_fields(doc, text):
-                    doc_date_done = True
-                else:
-                    spot = find_date_spot(page, rect)
-                    if spot is not None:
-                        _write_date(page, spot, text, rtl=_page_is_rtl(page))
-                        doc_date_done = True
-            if pl.get("proof_line", True):
-                d = free_line_rect(page, rect, height=11)
-                from .placement import id_areas
-                if any(d.intersects(r) for r in id_areas(page)):
-                    continue
-                page.insert_text((d.x0, d.y1 - 2.5), f"Signed {local.strftime('%d %b %Y, %H:%M')} ({tz_label})",
-                                 fontsize=8, color=(0.25, 0.25, 0.25))
+            text = signed_by_text(signer_name, text) if kind == "signed_by" else f"Signed {text} ({tz_label})"
+            text = text.encode("cp1252", errors="replace").decode("cp1252")
+            fs = op["font_size"]
+            if kind == "signed_by":
+                while fs > op["min_font_size"] and pdfdoc.text_length(text, fs) > rect.width:
+                    fs -= 0.25
+            page.insert_text((rect.x0, rect.y1 - op["baseline_inset"]), text, fontsize=fs, color=op["color"])
         return doc.tobytes(metadata={"/Producer": "gotoquill", "/Keywords": f"gotoquill request {request_id}"})
 
 

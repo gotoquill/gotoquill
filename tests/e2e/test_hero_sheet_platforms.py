@@ -61,9 +61,9 @@ def _tap_sign_here(frame):
     # non-zero chip can be only ~2px tall and move after bounding_box() returns.
     frame.wait_for_function(
         """() => {
-            const images = [...document.querySelectorAll('#pages .pg > img')];
+            const images = [...document.querySelectorAll('#pages .pg > canvas')];
             return images.length > 0 && images.every(im =>
-                im.complete && im.naturalWidth > 0 && im.naturalHeight > 0);
+                im.dataset.rendered === 'true' && im.width > 0 && im.height > 0);
         }""",
         timeout=5000,
     )
@@ -95,8 +95,8 @@ def _watch_sheet_touch(frame):
                     x: e.clientX, y: e.clientY,
                     rect: e.target.getBoundingClientRect().toJSON(),
                     open: sh.open,
-                    imagesReady: [...document.querySelectorAll('#pages .pg > img')]
-                        .every(im => im.complete && im.naturalWidth > 0),
+                    imagesReady: [...document.querySelectorAll('#pages .pg > canvas')]
+                        .every(im => im.dataset.rendered === 'true' && im.width > 0),
                 }), true);
             }
             new MutationObserver(records => {
@@ -305,55 +305,21 @@ def test_hero_sheet_touch_signhere_sandboxed_iframe(served_html):
         browser.close()
 
 
-@pytest.mark.parametrize('scenario', ['stale-coordinates', 'delayed-image'])
-def test_hero_sheet_touch_signhere_image_layout(served_html, scenario):
-    """An unloaded page can have a visible chip whose coordinates are not final."""
+def test_hero_sheet_touch_signhere_delayed_render(served_html):
+    """No clickable signature chip exists until its PDF canvas has finished rendering."""
+    path = Path(served_html['path'])
+    path.write_text(path.read_text().replace(
+        "await page.render({", "await window.__renderGate; await page.render({"))
     with pw.sync_playwright() as p:
         browser = _launch(p, 'chromium')
         ctx = browser.new_context(**DEVICES['pixel'])
-        # Hold the embedded page image before the app assigns src. No network or
-        # CPU timing is needed to reproduce the old bounding-box/touch race.
-        ctx.add_init_script(
-            """(() => {
-                const pending = [];
-                const src = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src');
-                Object.defineProperty(HTMLImageElement.prototype, 'src', {...src,
-                    set(value) { pending.push([this, value]); },
-                });
-                window.__loadPageImages = async () => {
-                    for (const [im, value] of pending) src.set.call(im, value);
-                    await Promise.all(pending.map(([im]) => im.decode()));
-                    await new Promise(requestAnimationFrame);
-                };
-            })();"""
-        )
+        ctx.add_init_script("window.__renderGate = new Promise(r => { window.__finishRender = r; });")
         page = ctx.new_page()
         frame = _sandboxed_frame(page, served_html['url'])
+        frame.wait_for_selector('#pages canvas')
+        assert frame.locator('#pages button.box').count() == 0
         _watch_sheet_touch(frame)
-        chip = frame.locator('#pages').get_by_role('button', name='Sign here', exact=True).first
-        before = chip.bounding_box()
-        assert before and 0 < before['height'] < 2, before
-        assert frame.locator('#pages .pg > img').first.evaluate('im => im.naturalWidth') == 0
-
-        if scenario == 'stale-coordinates':
-            # Complete image layout between the two operations in the old _tap.
-            frame.evaluate('window.__loadPageImages()')
-            after = chip.bounding_box()
-            x = before['x'] + before['width'] / 2
-            y = before['y'] + before['height'] / 2
-            assert after and y < after['y'], {'before': before, 'after': after}
-            page.touchscreen.tap(x, y)
-            frame.wait_for_function("window.__heroTouchEvents.some(e => e.type === 'click')")
-            diagnostics = _sheet_diagnostics(frame)
-            touches = [e for e in diagnostics['events'] if e['type'] == 'pointerdown']
-            assert touches and touches[0]['target'] == 'IMG', diagnostics
-            assert not diagnostics['sheet']['dialogOpen'], diagnostics
-            assert not any(e['type'] == 'open-change' for e in diagnostics['events']), diagnostics
-        else:
-            # The normal action must wait for real image dimensions, even when
-            # the unloaded chip already passes a non-zero/visible check.
-            frame.evaluate('setTimeout(() => window.__loadPageImages(), 300)')
-
+        frame.evaluate('() => { window.__finishRender(); }')
         _open_sheet_with_touch(frame)
         browser.close()
 
